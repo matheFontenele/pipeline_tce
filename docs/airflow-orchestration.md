@@ -1,7 +1,7 @@
 # Desenho operacional do Airflow
 
 **Status:** decisões de desenho para a plataforma nova; carga recorrente/publicação ainda bloqueadas por contratos e infraestrutura pendentes.
-**Contexto:** as sugestões de decomposição foram avaliadas em relação à DAG antiga e ao estado atual. A plataforma contém uma smoke test e um piloto manual de partição; não há DAG de ingestão recorrente para refatorar.
+**Contexto:** as sugestões de decomposição foram avaliadas em relação à DAG antiga e ao estado atual. A plataforma mantém um piloto manual de partição; não há DAG de ingestão recorrente para refatorar.
 
 ## Implementado nesta etapa
 
@@ -80,7 +80,7 @@ A UI atual está em HTTP. Até confirmar proxy/TLS, firewall e rede, o acesso de
 5. **Validação/publicação:** aplicar validação em duas camadas e staging/troca segura; teste de que carga inválida não troca versão publicada e de lock de refresh.
 6. **Operação:** calibrar pools, callbacks, alertas e relatórios; conectar primeiro consumidor em leitura dupla após os gates anteriores.
 
-Cada etapa que altere dados publicados exige aprovação explícita antes da execução. Até os gates 1–2, manter apenas a smoke test, sem DAGs inativas que sugiram uma ingestão funcional.
+Cada etapa que altere dados publicados exige aprovação explícita antes da execução. Até os gates 1–2, manter somente o piloto manual isolado, sem DAGs inativas que sugiram uma ingestão funcional.
 
 ## Pendências que bloqueiam execução de ingestão
 

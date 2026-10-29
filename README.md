@@ -35,8 +35,6 @@ A interface local fica em `http://127.0.0.1:8085` por padrão. O bind é configu
 
 O serviço `airflow-init` aplica migrações, cria o usuário admin apenas se ausente e configura `tce_api_pool` com um slot (limite serial conservador). Pode consultar a UI em Admin → Pools; não aumente os slots sem medir capacidade e confirmar limites da API.
 
-A DAG manual `platform_smoke_test` verifica que scheduler e executor conseguem executar uma task; não chama a API.
-
 A DAG manual `tce_extracao_piloto` aceita **uma partição explícita** e escreve somente no volume Docker `airflow_pilot_data`, isolado do projeto de origem e não compartilhado com consumidores. Para disparar, use **Trigger DAG** e informe, por exemplo:
 
 ```json
@@ -71,7 +69,7 @@ Não use `docker compose down -v` em ambiente com estado que precise ser preserv
 ## Componentes previstos
 
 - `catalog/`: cópias versionadas de endpoints e municípios.
-- `dags/`: smoke test e piloto de uma partição; recorrência, backfill, reparação e publicação permanecem etapas futuras.
+- `dags/`: piloto manual de uma partição; recorrência, backfill, reparação e publicação permanecem etapas futuras.
 - `src/pipeline_tce/ingestion/`: catálogo, planejamento, retry/backoff, limitação de chamadas e gravação atômica do piloto.
 - `tests/`: testes automatizados sem chamadas à API real.
 - `docs/architecture-plan.md`: decisões e gates de infraestrutura/migração.
