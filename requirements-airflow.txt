@@ -1,0 +1,4 @@
+# Resolved against the matching Apache Airflow constraints file during image build.
+pandas
+pyarrow
+requests

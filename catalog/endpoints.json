@@ -1,0 +1,844 @@
+{
+    "Notas de Empenho": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/notas_empenhos",
+        "prefixo": "notas_empenho",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["exercicio_orcamento", "codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [
+            {"id": "status_pagamento", "label": "Filtro de Pagamento", "tipo": "select", "opcoes": ["TODOS", "PENDENTE", "PARCIAL", "PAGO"]}
+        ],
+        "colunas_texto": {
+            "descricao_historico_empenho": "Histórico do empenho",
+            "nome_negociante": "Credor cadastrado",
+            "numero_contrato": "Nº Contrato",
+            "numero_documento_negociante": "CPF/CNPJ Credor",
+            "numero_empenho": "Nº Empenho"
+        },
+        "layout_card": {
+            "topo_esq": "numero_empenho",
+            "titulo_grande": "nome_negociante",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "municipio_referencia"},
+                {"tipo": "data", "label": "Emissão", "coluna": "data_emissao_empenho"}
+            ],
+            "corpo_texto": "descricao_historico_empenho",
+            "grid_financeiro": [
+                {"coluna": "valor_empenhado", "label_caixa": "Valor Empenhado"},
+                {"coluna": "valor_liquidado", "label_caixa": "Valor Liquidado"},
+                {"coluna": "valor_pago", "label_caixa": "Valor Pago"}
+            ]
+        },
+        "relacionamentos": [
+            {
+                "titulo_secao": "🔍 Liquidações Vinculadas",
+                "tabela_alvo_prefixo": "liquidacoes",
+                "chaves_join": ["codigo_municipio", "codigo_orgao", "numero_empenho"],
+                "colunas_exibicao": [
+                    {"label": "Data", "campo": "data_liquidacao", "tipo": "data"},
+                    {"label": "Responsavel", "campo": "nome_responsavel_liquidacao", "tipo": "texto"},
+                    {"label": "Valor (R$)", "campo": "valor_liquidado", "tipo": "moeda"}
+                ]
+            },
+            {
+                "titulo_secao": "🧾 Notas Fiscais Vinculadas",
+                "tabela_alvo_prefixo": "notas_fiscais",
+                "chaves_join": ["codigo_municipio", "codigo_orgao", "numero_empenho"],
+                "colunas_exibicao": [
+                    {"label": "Data", "campo": "data_emissao", "tipo": "data"},
+                    {"label": "Nº NF", "campo": "numero_nota_fiscal", "tipo": "texto"},
+                    {"label": "Valor Bruto", "campo": "valor_bruto", "tipo": "moeda"}
+                ]
+            },
+            {
+                "titulo_secao": "💸 Pagamentos Vinculados",
+                "tabela_alvo_prefixo": "notas_pagamentos",
+                "chaves_join": ["codigo_municipio", "codigo_orgao", "numero_empenho"],
+                "colunas_exibicao": [
+                    {"label": "Data", "campo": "data_nota_pagamento", "tipo": "data"},
+                    {"label": "Nº Pagamento", "campo": "numero_nota_pagamento", "tipo": "texto"},
+                    {"label": "Valor (R$)", "campo": "valor_nota_pagamento", "tipo": "moeda"}
+                ]
+            }
+        ]
+    },
+    "Notas Fiscais": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/notas_fiscais",
+        "prefixo": "notas_fiscais",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["exercicio_orcamento", "codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [],
+        "colunas_texto": {
+            "numero_chave_acesso_nfe": "Chave de Acesso NF",
+            "cpf_cnpj_emitente": "CPF/CNPJ Emitente",
+            "numero_nota_fiscal": "Nº Nota Fiscal",
+            "numero_empenho": "Nº Empenho"
+        },
+        "layout_card": {
+            "topo_esq": "numero_nota_fiscal",
+            "titulo_grande": "cpf_cnpj_emitente",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "municipio_referencia"},
+                {"tipo": "data", "label": "Emissão NF", "coluna": "data_emissao"}
+            ],
+            "corpo_texto": "numero_chave_acesso_nfe",
+            "grid_financeiro": [
+                {"coluna": "valor_bruto", "label_caixa": "Valor da NF"}
+            ]
+        },
+        "relacionamentos": [
+            {
+                "titulo_secao": "📦 Itens Desta Nota",
+                "tabela_alvo_prefixo": "itens_notas_fiscais",
+                "chaves_join": ["codigo_municipio", "numero_nota_fiscal"],
+                "colunas_exibicao": [
+                    {"label": "Qtd", "campo": "quantidade_item", "tipo": "texto"},
+                    {"label": "Descrição", "campo": "descricao_item", "tipo": "texto"},
+                    {"label": "Valor (R$)", "campo": "valor_total_item", "tipo": "moeda"}
+                ]
+            },
+            {
+                "titulo_secao": "📑 Empenho Origem",
+                "tabela_alvo_prefixo": "notas_empenho",
+                "chaves_join": ["codigo_municipio", "numero_empenho"],
+                "colunas_exibicao": [
+                    {"label": "Data Empenho", "campo": "data_emissao_empenho", "tipo": "data"},
+                    {"label": "Nº Empenho", "campo": "numero_empenho", "tipo": "texto"},
+                    {"label": "Valor Empenhado", "campo": "valor_empenhado", "tipo": "moeda"}
+                ]
+            }
+        ]
+    },
+    "Notas de Pagamento": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/notas_pagamentos",
+        "prefixo": "notas_pagamentos",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["exercicio_orcamento", "codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [],
+        "colunas_texto": {
+            "numero_documento_caixa": "Nº Doc Caixa",
+            "nome_responsavel_pagamento": "Responsável Pagto",
+            "numero_nota_pagamento": "Nº Nota Pagto",
+            "numero_empenho": "Nº Empenho"
+        },
+        "layout_card": {
+            "topo_esq": "numero_nota_pagamento",
+            "titulo_grande": "nome_responsavel_pagamento",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "municipio_referencia"},
+                {"tipo": "data", "label": "Data Pagto", "coluna": "data_nota_pagamento"}
+            ],
+            "corpo_texto": "numero_documento_caixa",
+            "grid_financeiro": [
+                {"coluna": "valor_nota_pagamento", "label_caixa": "Valor Pago"},
+                {"coluna": "valor_empenhado_a_pagar", "label_caixa": "Valor Empenhado Restante"},
+                {"coluna": "estado_de_estornado", "label_caixa": "Valor Estornado"}
+            ]
+        },
+        "relacionamentos": [
+            {
+                "titulo_secao": "📑 Empenho de Origem",
+                "tabela_alvo_prefixo": "notas_empenho",
+                "chaves_join": ["codigo_municipio", "numero_empenho"],
+                "colunas_exibicao": [
+                    {"label": "Credor", "campo": "nome_negociante", "tipo": "texto"},
+                    {"label": "Data", "campo": "data_emissao_empenho", "tipo": "data"},
+                    {"label": "Valor Empenhado", "campo": "valor_empenhado", "tipo": "moeda"}
+                ]
+            },
+            {
+                "titulo_secao": "🧾 Notas Fiscais Vinculadas",
+                "tabela_alvo_prefixo": "notas_fiscais",
+                "chaves_join": ["codigo_municipio", "numero_empenho"],
+                "colunas_exibicao": [
+                    {"label": "Data NF", "campo": "data_emissao", "tipo": "data"},
+                    {"label": "Nº NF", "campo": "numero_nota_fiscal", "tipo": "texto"},
+                    {"label": "Valor Bruto", "campo": "valor_bruto", "tipo": "moeda"}
+                ]
+            }
+        ]
+    },
+    "Cheques de Notas de Pagamento": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/cheques_notas_pagamentos",
+        "prefixo": "cheques_notas_pagamentos",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["exercicio_orcamento", "codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [],
+        "colunas_texto": {
+            "numero_nota_pagamento": "Nº Nota Pagto",
+            "numero_nota_empenho": "Nº Empenho",
+            "numero_banco": "Numero Banco",
+            "numero_agencia": "Numero Agencia",
+            "numero_conta": "Numero Conta",
+            "numero_cheque": "Numero Cheque"
+        },
+        "layout_card": {
+            "topo_esq": "numero_nota_pagamento",
+            "titulo_grande": "numero_nota_empenho",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "municipio_referencia"},
+                {"tipo": "data", "label": "Emissão Cheque", "coluna": "data_emissao_cheque"}
+            ],
+            "corpo_texto": "numero_cheque",
+            "grid_financeiro": [
+                {"coluna": "valor_cheque", "label_caixa": "Valor do Cheque"}
+            ]
+        },
+        "relacionamentos": [
+            {
+                "titulo_secao": "📑 Empenho Vinculado",
+                "tabela_alvo_prefixo": "notas_empenho",
+                "chaves_join": ["codigo_municipio", "numero_nota_empenho"],
+                "colunas_exibicao": [
+                    {"label": "Credor", "campo": "nome_negociante", "tipo": "texto"},
+                    {"label": "Data Empenho", "campo": "data_emissao_empenho", "tipo": "data"},
+                    {"label": "Valor (R$)", "campo": "valor_empenhado", "tipo": "moeda"}
+                ]
+            },
+            {
+                "titulo_secao": "💸 Pagamento Vinculado",
+                "tabela_alvo_prefixo": "notas_pagamentos",
+                "chaves_join": ["codigo_municipio", "numero_nota_pagamento"],
+                "colunas_exibicao": [
+                    {"label": "Nº Caixa", "campo": "numero_documento_caixa", "tipo": "texto"},
+                    {"label": "Responsável", "campo": "nome_responsavel_pagamento", "tipo": "texto"},
+                    {"label": "Valor Pago", "campo": "valor_nota_pagamento", "tipo": "moeda"}
+                ]
+            },
+            {
+                "titulo_secao": "🧾 Notas Fiscais Vinculadas",
+                "tabela_alvo_prefixo": "notas_fiscais",
+                "chaves_join": ["codigo_municipio", "numero_nota_empenho"],
+                "colunas_exibicao": [
+                    {"label": "Data NF", "campo": "data_emissao", "tipo": "data"},
+                    {"label": "Nº NF", "campo": "numero_nota_fiscal", "tipo": "texto"},
+                    {"label": "Valor Bruto", "campo": "valor_bruto", "tipo": "moeda"}
+                ]
+            }
+        ]
+    },
+    "Notas de Pagamento da Folha": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/notas_pagamentos_folhas",
+        "prefixo": "notas_pagamentos_folhas",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["exercicio_orcamento", "codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [],
+        "colunas_texto": {
+            "numero_nota_pagamento": "Nº Nota de Pagamento",
+            "numero_nota_empenho": "Nº Empenho Vinculado",
+            "numero_sub_empenho": "Nº Sub-empenho",
+            "tipo_folha": "Tipo de Folha (Ex: AN)",
+            "data_competencia_folha": "Data/Competência da Folha"
+        },
+        "layout_card": {
+            "topo_esq": "numero_nota_pagamento",
+            "titulo_grande": "numero_nota_empenho",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "municipio_referencia"},
+                {"tipo": "data", "label": "Emissão", "coluna": "data_emissao_folha"},
+                {"tipo": "texto", "label": "Competência", "coluna": "data_competencia_folha"}
+            ],
+            "corpo_texto": "tipo_folha",
+            "grid_financeiro": [
+                {"coluna": "valor_pagamento_folha", "label_caixa": "Valor Pago na Folha"}
+            ]
+        },
+        "relacionamentos": [
+            {
+                "titulo_secao": "📑 Empenho de Origem",
+                "tabela_alvo_prefixo": "notas_empenho",
+                "chaves_join": ["codigo_municipio", "numero_nota_empenho"],
+                "colunas_exibicao": [
+                    {"label": "Credor / Setor", "campo": "nome_negociante", "tipo": "texto"},
+                    {"label": "Data Empenho", "campo": "data_emissao_empenho", "tipo": "data"},
+                    {"label": "Valor Empenhado", "campo": "valor_empenhado", "tipo": "moeda"}
+                ]
+            },
+            {
+                "titulo_secao": "💸 Pagamento Geral Vinculado",
+                "tabela_alvo_prefixo": "notas_pagamentos",
+                "chaves_join": ["codigo_municipio", "numero_nota_pagamento"],
+                "colunas_exibicao": [
+                    {"label": "Nº Caixa", "campo": "numero_documento_caixa", "tipo": "texto"},
+                    {"label": "Responsável", "campo": "nome_responsavel_pagamento", "tipo": "texto"},
+                    {"label": "Valor Pago Total", "campo": "valor_nota_pagamento", "tipo": "moeda"}
+                ]
+            }
+        ]
+    },
+    "Despesas Extra Orçamentárias": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/despesas_extra_orcamentarias",
+        "prefixo": "despesas_extra_orcamentarias",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["exercicio_orcamento", "codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [],
+        "colunas_texto": {
+            "numero_documento_despesa_extra": "Nº Doc. Despesa",
+            "nome_credor_despesa_extra": "Credor",
+            "codigo_conta_extraorcamentaria": "Conta Extraorçamentária",
+            "numero_documento_caixa": "Nº Doc. Caixa"
+        },
+        "layout_card": {
+            "topo_esq": "numero_documento_despesa_extra",
+            "titulo_grande": "nome_credor_despesa_extra",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "municipio_referencia"},
+                {"tipo": "data", "label": "Data Despesa", "coluna": "data_emissao_despesa_extra"}
+            ],
+            "corpo_texto": "nome_credor_despesa_extra",
+            "grid_financeiro": [
+                {"coluna": "valor_documento_despesa_extra", "label_caixa": "Valor da Despesa"},
+                {"coluna": "valor_deducao_despesa_extra", "label_caixa": "Valor de Dedução"}
+            ]
+        },
+        "relacionamentos": [
+            {
+                "titulo_secao": "💸 Pagamentos Orçamentários Vinculados (Mesmo Caixa)",
+                "tabela_alvo_prefixo": "notas_pagamentos",
+                "chaves_join": ["codigo_municipio", "numero_documento_caixa"],
+                "colunas_exibicao": [
+                    {"label": "Nº Empenho", "campo": "numero_empenho", "tipo": "texto"},
+                    {"label": "Nº Nota Pagto", "campo": "numero_nota_pagamento", "tipo": "texto"},
+                    {"label": "Valor Pago (Líquido)", "campo": "valor_nota_pagamento", "tipo": "moeda"}
+                ]
+            }
+        ]
+    },
+    "Pagamento e Liquidações": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/pagamentos_liquidacoes",
+        "prefixo": "pagamento_liquidacoes",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["exercicio_orcamento", "codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [],
+        "colunas_texto": {
+            "numero_nota_pagamento": "Nº Nota de Pagto",
+            "numero_nota_empenho": "Nº Empenho Vinculado",
+            "numero_sub_empenho": "Nº Sub-Empenho (Liquidação)",
+            "codigo_orgao": "Código do Órgão"
+        },
+        "layout_card": {
+            "topo_esq": "numero_nota_pagamento",
+            "titulo_grande": "numero_nota_empenho",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "municipio_referencia"},
+                {"tipo": "data", "label": "Data Liquidação", "coluna": "data_liquidacao"}
+            ],
+            "corpo_texto": "numero_sub_empenho",
+            "grid_financeiro": []
+        },
+        "relacionamentos": [
+            {
+                "titulo_secao": "📑 Empenho Vinculado",
+                "tabela_alvo_prefixo": "notas_empenho",
+                "chaves_join": ["codigo_municipio", "numero_nota_empenho"],
+                "colunas_exibicao": [
+                    {"label": "Credor", "campo": "nome_negociante", "tipo": "texto"},
+                    {"label": "Data Empenho", "campo": "data_emissao_empenho", "tipo": "data"},
+                    {"label": "Valor (R$)", "campo": "valor_empenhado", "tipo": "moeda"}
+                ]
+            },
+            {
+                "titulo_secao": "💸 Detalhes do Pagamento",
+                "tabela_alvo_prefixo": "notas_pagamentos",
+                "chaves_join": ["codigo_municipio", "numero_nota_pagamento"],
+                "colunas_exibicao": [
+                    {"label": "Nº Caixa", "campo": "numero_documento_caixa", "tipo": "texto"},
+                    {"label": "Responsável", "campo": "nome_responsavel_pagamento", "tipo": "texto"},
+                    {"label": "Valor Pago", "campo": "valor_nota_pagamento", "tipo": "moeda"}
+                ]
+            }
+        ]
+    },
+    "Liquidações": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/liquidacoes",
+        "prefixo": "liquidacoes",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["exercicio_orcamento", "codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [],
+        "colunas_texto": {
+            "nome_responsavel_liquidacao": "Responsavel da Liquidação",
+            "historico": "Histórico de Liquidação",
+            "numero_nota_liquidacao": "Nº Liquidação",
+            "numero_nota_fiscal": "Nº Nota Fiscal Vinculada",
+            "numero_documento": "Nº Documento",
+            "numero_empenho": "Nº Empenho"
+        },
+        "layout_card": {
+            "topo_esq": "numero_nota_liquidacao",
+            "titulo_grande": "numero_empenho",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "municipio_referencia"},
+                {"tipo": "data", "label": "Data Liquidação", "coluna": "data_liquidacao"}
+            ],
+            "corpo_texto": "nome_responsavel_liquidacao",
+            "grid_financeiro": [
+                {"coluna": "valor_bruto_nota_liquidacao", "label_caixa": "Valor Liquidado"}
+            ]
+        },
+        "relacionamentos": [
+            {
+                "titulo_secao": "📑 Empenho de Origem",
+                "tabela_alvo_prefixo": "notas_empenho",
+                "chaves_join": ["codigo_municipio", "numero_empenho"],
+                "colunas_exibicao": [
+                    {"label": "Credor", "campo": "nome_negociante", "tipo": "texto"},
+                    {"label": "Valor Empenhado", "campo": "valor_empenhado", "tipo": "moeda"}
+                ]
+            },
+            {
+                "titulo_secao": "🧾 Nota Fiscal Vinculada",
+                "tabela_alvo_prefixo": "notas_fiscais",
+                "chaves_join": ["codigo_municipio", "numero_nota_fiscal"],
+                "colunas_exibicao": [
+                    {"label": "Data NF", "campo": "data_emissao", "tipo": "data"},
+                    {"label": "Valor Bruto", "campo": "valor_bruto", "tipo": "moeda"}
+                ]
+            }
+        ]
+    },    
+    "Bens Incorporados ao Patrimônio": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/bens_incorporados_patrimonio_municipio",
+        "prefixo": "bens_incorporados_patrimonio_municipio",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["codigo_municipio", "data_inicio", "data_fim"],
+        "campos_ui": [],
+        "colunas_texto": {
+            "numero_registro": "Nº Tombamento / Registro",
+            "descricao_bem": "Descrição do Bem",
+            "tipo_classificacao": "Classificação Contábil",
+            "vida_util": "Vida Útil Estimada (Meses/Anos)",
+            "municipio_cartorio": "Cartório Vinculado"
+        },
+        "layout_card": {
+            "topo_esq": "tipo_classificacao",
+            "titulo_grande": "numero_registro",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "municipio_referencia"},
+                {"tipo": "data", "label": "Aquisição", "coluna": "data_aquisicao"},
+                {"tipo": "texto", "label": "Classificação", "coluna": "tipo_classificacao"}
+            ],
+            "corpo_texto": "descricao_bem",
+            "grid_financeiro": [
+                {"coluna": "valor_depreciavel", "label_caixa": "Valor Depreciável"},
+                {"coluna": "valor_residual", "label_caixa": "Valor Residual Estimado"}
+            ]
+        },
+        "relacionamentos": [
+            {
+                "titulo_secao": "🏢 Alocações em Órgãos",
+                "tabela_alvo_prefixo": "controle_bens_unidades_orcamentarias",
+                "chaves_join": ["codigo_municipio", "numero_registro"],
+                "colunas_exibicao": [
+                    {"label": "Órgão (Cód)", "campo": "codigo_orgao", "tipo": "texto"},
+                    {"label": "Data Disp.", "campo": "data_disponibilizacao", "tipo": "data"},
+                    {"label": "Nº Expediente", "campo": "numero_expediente", "tipo": "texto"}
+                ]
+            },
+            {
+                "titulo_secao": "📉 Ajustes, Reavaliações e Obras",
+                "tabela_alvo_prefixo": "ajuste_reavaliacao_patrimonial_desincorporacao_bem_municipio",
+                "chaves_join": ["codigo_municipio", "numero_registro"],
+                "colunas_exibicao": [
+                    {"label": "Data", "campo": "data_avaliacao", "tipo": "data"},
+                    {"label": "Descrição da Obra/Ajuste", "campo": "descricao_ajuste_motivo", "tipo": "texto"},
+                    {"label": "Valor (R$)", "campo": "valor_ajuste_avaliacao", "tipo": "moeda"}
+                ]
+            }
+        ]
+    },
+    "Controle de Alocação (Bens em Órgãos)": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/controle_bens_unidades_orcamentarias",
+        "prefixo": "controle_bens_unidades_orcamentarias",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["exercicio_orcamento", "codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [],
+        "colunas_texto": {
+            "numero_registro": "Nº Registro / Tombamento",
+            "numero_expediente": "Nº Expediente / Processo",
+            "codigo_orgao": "Código do Órgão Alocado",
+            "codigo_unidade_orcamentaria": "Unidade Orçamentária"
+        },
+        "layout_card": {
+            "topo_esq": "codigo_orgao",
+            "titulo_grande": "numero_registro",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "municipio_referencia"},
+                {"tipo": "data", "label": "Disponibilização", "coluna": "data_disponibilizacao"}
+            ],
+            "corpo_texto": "numero_expediente",
+            "grid_financeiro": []
+        },
+        "relacionamentos": [
+            {
+                "titulo_secao": "📦 Detalhes do Bem",
+                "tabela_alvo_prefixo": "bens_incorporados_patrimonio_municipio",
+                "chaves_join": ["codigo_municipio", "numero_registro"],
+                "colunas_exibicao": [
+                    {"label": "Descrição", "campo": "descricao_bem", "tipo": "texto"},
+                    {"label": "Data Aquisição", "campo": "data_aquisicao", "tipo": "data"}
+                ]
+            },
+            {
+                "titulo_secao": "🔗 Notas de Empenho (Aquisição)",
+                "tabela_alvo_prefixo": "controle_bens_notas_empenhos",
+                "chaves_join": ["codigo_municipio", "numero_registro"],
+                "colunas_exibicao": [
+                    {"label": "Empenho", "campo": "numero_empenho", "tipo": "texto"},
+                    {"label": "Exercício", "campo": "exercicio_orcamento", "tipo": "texto"}
+                ]
+            }
+        ]
+    },
+    "Ajuste, Reavaliação e Obras em Bens": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/ajuste_reavaliacao_patrimonial_desincorporacao_bem_municipio",
+        "prefixo": "ajuste_reavaliacao_patrimonial_desincorporacao_bem_municipio",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["exercicio_orcamento", "codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [],
+        "colunas_texto": {
+            "numero_registro": "Nº Registro (Bem Vinculado)",
+            "descricao_ajuste_motivo": "Motivo / Descrição da Obra",
+            "codigo_orgao": "Órgão Responsável",
+            "numero_expediente": "Nº Processo/Expediente"
+        },
+        "layout_card": {
+            "topo_esq": "numero_expediente",
+            "titulo_grande": "numero_registro",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "municipio_referencia"},
+                {"tipo": "data", "label": "Avaliação", "coluna": "data_avaliacao"}
+            ],
+            "corpo_texto": "descricao_ajuste_motivo",
+            "grid_financeiro": [
+                {"coluna": "valor_ajuste_avaliacao", "label_caixa": "Valor do Ajuste/Obra"}
+            ]
+        },
+        "relacionamentos": [
+            {
+                "titulo_secao": "📦 Detalhes Originais do Bem",
+                "tabela_alvo_prefixo": "bens_incorporados_patrimonio_municipio",
+                "chaves_join": ["codigo_municipio", "numero_registro"],
+                "colunas_exibicao": [
+                    {"label": "Descrição Original", "campo": "descricao_bem", "tipo": "texto"},
+                    {"label": "Valor Residual Orig.", "campo": "valor_residual", "tipo": "moeda"}
+                ]
+            }
+        ]
+    },
+    "Controle de bens e notas de empenho": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/controle_bens_notas_empenhos",
+        "prefixo": "controle_besn_notas_empenho",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["exercicio_orcamento", "codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [],
+        "colunas_texto": {
+            "numero_empenho": "Nº Empenho",
+            "numero_tombamento": "Nº Tombamento",
+            "especificacao_bem": "Especificação do Bem"
+        },
+        "layout_card": {
+            "topo_esq": "numero_tombamento",
+            "titulo_grande": "especificacao_bem",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "municipio_referencia"},
+                {"tipo": "data", "label": "Emissão Empenho", "coluna": "data_emissao_empenho"}
+            ],
+            "corpo_texto": "numero_empenho",
+            "grid_financeiro": [
+                {"coluna": "valor_empenhado", "label_caixa": "Valor Vinculado"}
+            ]
+        },
+        "relacionamentos": [
+            {
+                "titulo_secao": "📑 Empenho Original",
+                "tabela_alvo_prefixo": "notas_empenho",
+                "chaves_join": ["codigo_municipio", "numero_empenho"],
+                "colunas_exibicao": [
+                    {"label": "Credor", "campo": "nome_negociante", "tipo": "texto"},
+                    {"label": "Valor (R$)", "campo": "valor_empenhado", "tipo": "moeda"}
+                ]
+            }
+        ]
+    },
+    "Contas Redutoras e Bens Incorporados": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/contas_redutoras_bens_incorporados_patrimonio_municipio",
+        "prefixo": "contas_redutoras_bens_incorporados_patrimonio_municipio",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["exercicio_orcamento", "codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [],
+        "colunas_texto": {
+            "numero_registro": "Nº Registro",
+            "descricao_situacao_bem": "Descrição da Conta",
+            "especificacao_bem": "Especificação do Bem"
+        },
+        "layout_card": {
+            "topo_esq": "codigo_municipio",
+            "titulo_grande": "descricao_situacao_bem",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "municipio_referencia"},
+                {"tipo": "data", "label": "Situação", "coluna": "data_situacao"}
+            ],
+            "corpo_texto": "descricao_situacao_bem",
+            "grid_financeiro": [
+                {"coluna": "valor_situacao", "label_caixa": "Valor Situação"}
+            ]
+        }
+    },
+    "Itens de Notas Fiscais": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/itens_notas_fiscais",
+        "prefixo": "itens_notas_fiscais",
+        "frequencia": "anual",
+        "parametros_obrigatorios": ["exercicio_orcamento", "codigo_municipio"],
+        "campos_ui": [],
+        "colunas_texto": {
+            "numero_nota_fiscal": "Nº Nota Fiscal",
+            "descricao_item": "Descrição do Item",
+            "numero_nota_empenho": "Nº Empenho Vinculado",
+            "numero_item_sequencial": "Nº de Item Sequancial"
+        },
+        "layout_card": {
+            "topo_esq": "numero_nota_fiscal",
+            "titulo_grande": "numero_nota_empenho",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "municipio_referencia"},
+                {"tipo": "data", "label": "Emissão NF", "coluna": "data_emissao"}
+            ],
+            "corpo_texto": "descricao_item",
+            "grid_financeiro": [
+                {"coluna": "valor_unitario_item", "label_caixa": "Valor Unitario do Item"},
+                {"coluna": "valor_total_item", "label_caixa": "Valor Total do Item"}
+            ]
+        },
+        "relacionamentos": [
+            {
+                "titulo_secao": "🧾 Nota Fiscal Origem",
+                "tabela_alvo_prefixo": "notas_fiscais",
+                "chaves_join": ["codigo_municipio", "numero_nota_fiscal"],
+                "colunas_exibicao": [
+                    {"label": "Numéro NF", "campo": "numero_nota_fiscal", "tipo": "texto"},
+                    {"label": "CPF/CNPJ Emitente", "campo": "cpf_cnpj_emitente", "tipo": "texto"},
+                    {"label": "Valor Bruto NF", "campo": "valor_bruto", "tipo": "moeda"}
+                ]
+            }
+        ]
+    },
+    "Veiculos Municipais": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/veiculos_municipais",
+        "prefixo": "veiculos_municipais",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [
+            {"id": "tipo_vinculo", "label": "Filtro de Frota", "tipo": "select", "opcoes": ["TODOS", "PRÓPRIO", "LOCADO", "CEDIDO"]}
+        ],
+        "colunas_texto": {
+            "codigo_municipio": "Código do Município",
+            "nome_proprietario": "Proprietário",
+            "ano_modelo": "Ano do Modelo",
+            "placa_traduzida": "Placa",
+            "renavam_traduzido": "Renavam",
+            "chassi_traduzido": "Chassi",
+            "cor_traduzida": "Cor",
+            "veiculo_completo": "Descrição",
+            "numero_registro": "ID de Registro (TCE)",
+            "tipo_vinculo": "Vínculo da Frota",
+            "orgao_alocado": "Código do Órgão Atual"
+        },
+        "layout_card": {
+            "topo_esq": "placa_traduzida",
+            "titulo_grande": "veiculo_completo",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "codigo_municipio"},
+                {"tipo": "texto", "label": "Cor", "coluna": "cor_traduzida"},
+                {"tipo": "texto", "label": "Frota", "coluna": "tipo_vinculo"},
+                {"tipo": "texto", "label": "Órgão (Cód)", "coluna": "orgao_alocado"}
+            ],
+            "corpo_texto": ["renavam_traduzido", "chassi_traduzido", "ano_modelo", "nome_proprietario"],
+            "grid_financeiro": []
+        },
+        "relacionamentos": [
+            {
+                "titulo_secao": "🔄 Movimentações de Lotação",
+                "tabela_alvo_prefixo": "destinacao_veiculos",
+                "chaves_join": ["codigo_municipio", "numero_registro"],
+                "colunas_exibicao": [
+                    {"label": "Data Inclusão", "campo": "data_inclusao_uo", "tipo": "data"},
+                    {"label": "Cód. Órgão", "campo": "codigo_orgao", "tipo": "texto"},
+                    {"label": "Cód. Unidade", "campo": "codigo_unidade_orcamentaria", "tipo": "texto"}
+                ]
+            }
+        ]
+    },
+    "Veiculos Locados": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/veiculos_locados",
+        "prefixo": "veiculos_locados",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [],
+        "colunas_texto": {
+            "codigo_municipio": "Codigo do Municipio",
+            "nome_locador": "Nome Locador",
+            "numero_contrato": "Numero Contrato"
+        },
+        "layout_card": {
+            "topo_esq": "numero_contrato",
+            "titulo_grande": "nome_locador",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "codigo_municipio"},
+                {"tipo": "data", "label": "Data do Contrato", "coluna": "data_contrato"}
+            ],
+            "corpo_texto": ["dados_documento_locador"],
+            "grid_financeiro": [
+                {"coluna": "valor_mensal_contrato", "label_caixa": "Valor Mensal do Contrato"}
+            ]
+        },
+        "relacionamentos": []
+    },
+    "Veiculos Cedidos Terceiros": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/veiculos_cedidos_terceiros",
+        "prefixo": "veiculos_cedidos_terceiros",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [],
+        "colunas_texto": {
+            "codigo_municipio": "Codigo do Municipio",
+            "nome_locador": "Nome Locador",
+            "numero_contrato": "Numero Contrato"
+        },
+        "layout_card": {
+            "topo_esq": "numero_contrato",
+            "titulo_grande": "modelo_versao",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "codigo_municipio"},
+                {"tipo": "data", "label": "Data do Contrato", "coluna": "data_contrato"}
+            ],
+            "corpo_texto": ["dados_documento_locador"],
+            "grid_financeiro": [
+                {"coluna": "valor_mensal_contrato", "label_caixa": "Valor Mensal do Contrato"}
+            ]
+        },
+        "relacionamentos": []
+    },
+    "Destinação Veiculos": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/destinacao_veiculos",
+        "prefixo": "destinacao_veiculos",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [],
+        "colunas_texto": {
+            "codigo_municipio": "Codigo do Municipio",
+            "codigo_orgao": "Codigo Orgão",
+            "codigo_unidade_orcamentaria": "Codigo Unidade Orçamentaria",
+            "codigo_finalidade_veiculo": "Codigo Finalidade do Veiculo"
+        },
+        "layout_card": {
+            "topo_esq": "numero_odometro",
+            "titulo_grande": "codigo_renavam",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "codigo_municipio"},
+                {"tipo": "data", "label": "Inclusão na UO", "coluna": "data_inclusao_uo"},
+                {"tipo": "texto", "label": "Finalidade", "coluna": "codigo_finalidade_veiculo"}
+            ],
+            "corpo_texto": "descricao_bem",
+            "grid_financeiro": []
+        },
+        "relacionamentos": []
+    },
+    "Baixa Destinação Veiculos": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/baixa_destinacao_veiculos",
+        "prefixo": "baixa_destinacao_veiculos",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [],
+        "colunas_texto": {
+            "codigo_municipio": "Codigo do Municipio",
+            "codigo_orgao": "Codigo Orgão",
+            "codigo_unidade_orcamentaria": "Codigo Unidade Orçamentaria",
+            "codigo_baixa": "Codigo de Baixa Veiculo"
+        },
+        "layout_card": {
+            "topo_esq": "numero_odometro",
+            "titulo_grande": "codigo_renavam",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "codigo_municipio"},
+                {"tipo": "data", "label": "Data da Baixa", "coluna": "data_baixa_uo"}
+            ],
+            "corpo_texto": ["data_inclusao_uo", "data_baixa_uo"],
+            "grid_financeiro": []
+        },
+        "relacionamentos": []
+    },
+    "Controle Abastecimento de Veiculos": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/controle_abastecimento_veiculos",
+        "prefixo": "controle_abastecimento_veiculos",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [
+            {"id": "tipo_vinculo", "label": "Filtro de Frota", "tipo": "select", "opcoes": ["TODOS", "PRÓPRIO", "LOCADO", "CEDIDO"]}
+        ],
+        "colunas_texto": {
+            "codigo_municipio": "Código do Município",
+            "nome_fornecedor": "Posto de Combustível",
+            "nome_servidor_responsavel": "Motorista Responsável",
+            "placa_traduzida": "Placa",
+            "veiculo_completo": "Veículo",
+            "combustivel_traduzido": "Combustível",
+            "codigo_renavam": "Renavam",
+            "quantidade_combustivel": "Quantidade (Litros)"
+        },
+        "layout_card": {
+            "topo_esq": "placa_traduzida",
+            "titulo_grande": "nome_fornecedor",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "codigo_municipio"},
+                {"tipo": "data", "label": "Abastecimento", "coluna": "data_abastecimento"},
+                {"tipo": "texto", "label": "Combustível", "coluna": "combustivel_traduzido"}
+            ],
+            "corpo_texto": ["veiculo_completo", "nome_servidor_responsavel"],
+            "grid_financeiro": [
+                {"coluna": "valor_unidade_combustivel", "label_caixa": "Valor Unitário"},
+                {"coluna": "valor_total_abastecimento", "label_caixa": "Total Abastecido"}
+            ]
+        },
+        "relacionamentos": [
+            {
+                "titulo_aba": "Empenhos do Posto",
+                "titulo_secao": "Empenhos Vinculados a este Órgão",
+                "tabela_alvo_prefixo": "notas_empenho",
+                "chaves_join": ["codigo_orgao", "codigo_unidade_orcamentaria"],
+                "colunas_exibicao": [
+                    {"label": "Nº Empenho", "campo": "numero_empenho", "tipo": "texto"},
+                    {"label": "Data", "campo": "data_emissao_empenho", "tipo": "data"},
+                    {"label": "Credor", "campo": "nome_negociante", "tipo": "texto"},
+                    {"label": "Valor", "campo": "valor_empenhado", "tipo": "moeda"}
+                ]
+            }
+        ]
+    },
+    "Controle Manutenção de Veiculos": {
+        "endpoint": "https://api-dados-abertos.tce.ce.gov.br/sim/controle_manutencao_veiculos",
+        "prefixo": "controle_manutencao_veiculos",
+        "frequencia": "mensal",
+        "parametros_obrigatorios": ["codigo_municipio", "data_referencia_doc"],
+        "campos_ui": [
+            {"id": "tipo_vinculo", "label": "Filtro de Frota", "tipo": "select", "opcoes": ["TODOS", "PRÓPRIO", "LOCADO", "CEDIDO"]}
+        ],
+        "colunas_texto": {
+            "codigo_municipio": "Codigo do Municipio",
+            "nome_razao_prestador": "Nome Prestador",
+            "nome_responsavel_manutencao": "Nome Responsavel",
+            "numero_empenho": "Numero Empenho"
+        },
+        "layout_card": {
+            "topo_esq": "codigo_renavam",
+            "titulo_grande": "nome_razao_prestador",
+            "metadados": [
+                {"tipo": "local", "label": "Município", "coluna": "codigo_municipio"},
+                {"tipo": "data", "label": "Data da Manutenção", "coluna": "data_manutencao"}
+            ],
+            "corpo_texto": ["descricao_servico"],
+            "grid_financeiro": [
+                {"coluna": "valor_total_servico", "label_caixa": "Valor Total do Serviço"}
+            ]
+        },
+        "relacionamentos": []
+    }
+}

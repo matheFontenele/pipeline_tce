@@ -1,7 +1,17 @@
 # Desenho operacional do Airflow
 
-**Status:** decisões de desenho para a plataforma nova; ingestão real ainda bloqueada por contratos e infraestrutura pendentes.  
-**Contexto:** as sugestões de decomposição foram avaliadas em relação à DAG antiga e ao estado atual da plataforma. A plataforma contém apenas `platform_smoke_test`; não há DAG de ingestão para refatorar.
+**Status:** decisões de desenho para a plataforma nova; carga recorrente/publicação ainda bloqueadas por contratos e infraestrutura pendentes.
+**Contexto:** as sugestões de decomposição foram avaliadas em relação à DAG antiga e ao estado atual. A plataforma contém uma smoke test e um piloto manual de partição; não há DAG de ingestão recorrente para refatorar.
+
+## Implementado nesta etapa
+
+- Catálogos `endpoints.json` e `municipios.json` copiados com proveniência/hash e validados antes do uso; nenhuma importação do checkout antigo.
+- `tce_extracao_piloto` é manual e exige exatamente uma partição por `dag_run.conf`; está vinculada ao pool `tce_api_pool` (um slot por padrão) e `max_active_runs=1`.
+- O cliente pagina de 1.000 em 1.000, espaça requests por 1,5 s, mantém uma chamada ativa por pool, respeita retry/backoff para HTTP 400/429 e falhas transitórias, e não registra corpo da resposta/query string.
+- A extração piloto grava apenas no volume Docker `airflow_pilot_data`, usa escrita atômica, preserva Parquet válido e reconhece marcador zero-colunas. Não valida schema/qualidade e não publica.
+- Imagem Airflow própria instala pandas/PyArrow/requests contra o constraints file da versão configurada; imagem de teste separada adiciona pytest. Testes mockados não chamam a API.
+
+Essa configuração só valida um piloto controlado; não é o limite de produção aprovado. Slots, intervalos, timeouts e backoffs devem ser calibrados com observação controlada e recursos medidos antes de aumentar volume.
 
 ## Decisões adotadas
 
@@ -63,12 +73,12 @@ A UI atual está em HTTP. Até confirmar proxy/TLS, firewall e rede, o acesso de
 
 ## Plano de implementação incremental
 
-1. **Contrato:** confirmar dono/versão do schema e partição, domínio por endpoint, formato de relatório e critérios de qualidade bloqueantes.
-2. **Controle:** escolher persistência isolada do Airflow metadata DB e implementar claim/lock, transições e recuperação com testes de concorrência/idempotência.
-3. **Planejador:** implementar descoberta pendente/reparação e batching; teste de limites, partições repetidas e volume máximo do scheduler.
-4. **Ingestão isolada:** integrar extrator compartilhado/versionado e storage de teste; exercitar timeout, HTTP 400/429, retry, falha parcial e marcador sem dados sem tocar nos Parquets de origem.
+1. **Piloto manual:** após atualizar imagem e configurar pool, testar uma única partição na API pública; revisar logs e artefato isolado. Não publicar nem tocar na origem.
+2. **Contrato:** confirmar dono/versão do schema e partição, domínio por endpoint, formato de relatório e critérios de qualidade bloqueantes.
+3. **Controle:** escolher persistência isolada do Airflow metadata DB e implementar claim/lock, transições e recuperação com testes de concorrência/idempotência.
+4. **Planejador:** implementar descoberta pendente/reparação e batching; teste de limites, partições repetidas e volume máximo do scheduler.
 5. **Validação/publicação:** aplicar validação em duas camadas e staging/troca segura; teste de que carga inválida não troca versão publicada e de lock de refresh.
-6. **Operação:** adicionar pools com slots medidos, callbacks, alertas, relatórios e primeiro consumidor em leitura dupla.
+6. **Operação:** calibrar pools, callbacks, alertas e relatórios; conectar primeiro consumidor em leitura dupla após os gates anteriores.
 
 Cada etapa que altere dados publicados exige aprovação explícita antes da execução. Até os gates 1–2, manter apenas a smoke test, sem DAGs inativas que sugiram uma ingestão funcional.
 

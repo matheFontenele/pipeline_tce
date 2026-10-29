@@ -10,7 +10,8 @@
 ## Dados e publicação
 
 - Airflow coordena; armazenamento compartilhado independente é a fonte dos datasets.
-- Não habilite extração real, publicação ou acesso aos dados de produção enquanto storage, rede, credenciais, versões e recursos do destino não estiverem confirmados.
+- Não habilite cargas recorrentes, publicação ou acesso/movimentação dos dados existentes enquanto storage, rede, credenciais, versões e recursos do destino não estiverem confirmados.
+- O piloto manual pode consultar a API pública somente para a partição explicitamente informada e grava exclusivamente no volume isolado `airflow_pilot_data`; não usar para produção nem para ler/escrever no projeto de origem.
 - Uma carga inválida jamais pode substituir uma versão publicada válida. Marcadores Parquet de zero colunas podem representar cache negativo: preservá-los e documentar sua semântica.
 - Validar linha a linha e qualidade de dataset antes da publicação; contratos devem ter uma única fonte de verdade versionada.
 - Aplicações consumidoras usam credenciais próprias somente leitura. Credenciais administrativas não são credenciais de consumidor.

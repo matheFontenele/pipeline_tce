@@ -19,7 +19,14 @@ services:
       - no-new-privileges:true
 
   airflow-init:
-    image: ${AIRFLOW_IMAGE:?Defina AIRFLOW_IMAGE no .env}
+    image: ${AIRFLOW_RUNTIME_IMAGE:-pipeline-tce-airflow:dev}
+    build: &airflow_build
+      context: .
+      dockerfile: Dockerfile
+      args:
+        AIRFLOW_BASE_IMAGE: ${AIRFLOW_IMAGE:?Defina AIRFLOW_IMAGE no .env}
+        AIRFLOW_VERSION: ${AIRFLOW_VERSION:-2.10.4}
+        PYTHON_VERSION: ${AIRFLOW_PYTHON_VERSION:-3.10}
     user: "${AIRFLOW_UID:-50000}:0"
     depends_on:
       airflow-postgres:
@@ -39,33 +46,42 @@ services:
       AIRFLOW_ADMIN_USERNAME: ${AIRFLOW_ADMIN_USERNAME:?Defina AIRFLOW_ADMIN_USERNAME no .env}
       AIRFLOW_ADMIN_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:?Defina AIRFLOW_ADMIN_PASSWORD no .env}
       AIRFLOW_ADMIN_EMAIL: ${AIRFLOW_ADMIN_EMAIL:?Defina AIRFLOW_ADMIN_EMAIL no .env}
+      TCE_CATALOG_DIR: ${TCE_CATALOG_DIR:-/opt/airflow/catalog}
+      TCE_PILOT_DATA_DIR: ${TCE_PILOT_DATA_DIR:-/opt/airflow/pilot-data}
+      TCE_API_MIN_INTERVAL_SECONDS: ${TCE_API_MIN_INTERVAL_SECONDS:-1.5}
+      TCE_HTTP_TIMEOUT: ${TCE_HTTP_TIMEOUT:-90}
+      TCE_HTTP_MAX_ATTEMPTS: ${TCE_HTTP_MAX_ATTEMPTS:-5}
+      TCE_HTTP_400_RETRIES: ${TCE_HTTP_400_RETRIES:-3}
+      TCE_HTTP_400_BACKOFF_SECONDS: ${TCE_HTTP_400_BACKOFF_SECONDS:-60}
+      TCE_HTTP_429_BACKOFF_SECONDS: ${TCE_HTTP_429_BACKOFF_SECONDS:-30}
+      TCE_HTTP_CONNECTION_BACKOFF_SECONDS: ${TCE_HTTP_CONNECTION_BACKOFF_SECONDS:-15}
+      TCE_HTTP_MAX_BACKOFF_SECONDS: ${TCE_HTTP_MAX_BACKOFF_SECONDS:-300}
+      TCE_HTTP_MAX_RETRY_AFTER_SECONDS: ${TCE_HTTP_MAX_RETRY_AFTER_SECONDS:-900}
+      TCE_API_POOL_SLOTS: ${TCE_API_POOL_SLOTS:-1}
       TZ: ${AIRFLOW_TIMEZONE:-America/Fortaleza}
-    volumes: &airflow_volumes
+    volumes:
       - ./dags:/opt/airflow/dags:ro
+      - ./catalog:/opt/airflow/catalog:ro
       - airflow_logs:/opt/airflow/logs
     entrypoint: /bin/bash
-    command:
-      - -c
-      - >-
-        airflow db migrate &&
-        airflow users create
-        --username "$${AIRFLOW_ADMIN_USERNAME}"
-        --password "$${AIRFLOW_ADMIN_PASSWORD}"
-        --firstname Platform --lastname Administrator
-        --role Admin --email "$${AIRFLOW_ADMIN_EMAIL}"
+    command: /opt/airflow/scripts/airflow-init.sh
     restart: "no"
     security_opt:
       - no-new-privileges:true
 
   airflow-webserver:
-    image: ${AIRFLOW_IMAGE:?Defina AIRFLOW_IMAGE no .env}
+    image: ${AIRFLOW_RUNTIME_IMAGE:-pipeline-tce-airflow:dev}
+    build: *airflow_build
     user: "${AIRFLOW_UID:-50000}:0"
     command: webserver
     depends_on:
       airflow-init:
         condition: service_completed_successfully
     environment: *airflow_environment
-    volumes: *airflow_volumes
+    volumes:
+      - ./dags:/opt/airflow/dags:ro
+      - ./catalog:/opt/airflow/catalog:ro
+      - airflow_logs:/opt/airflow/logs
     ports:
       - "${AIRFLOW_WEBSERVER_BIND:-127.0.0.1}:${AIRFLOW_WEBSERVER_PORT:-8085}:8080"
     healthcheck:
@@ -79,14 +95,19 @@ services:
       - no-new-privileges:true
 
   airflow-scheduler:
-    image: ${AIRFLOW_IMAGE:?Defina AIRFLOW_IMAGE no .env}
+    image: ${AIRFLOW_RUNTIME_IMAGE:-pipeline-tce-airflow:dev}
+    build: *airflow_build
     user: "${AIRFLOW_UID:-50000}:0"
     command: scheduler
     depends_on:
       airflow-init:
         condition: service_completed_successfully
     environment: *airflow_environment
-    volumes: *airflow_volumes
+    volumes:
+      - ./dags:/opt/airflow/dags:ro
+      - ./catalog:/opt/airflow/catalog:ro
+      - airflow_logs:/opt/airflow/logs
+      - airflow_pilot_data:/opt/airflow/pilot-data
     healthcheck:
       test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname $${HOSTNAME}"]
       interval: 30s
@@ -97,6 +118,29 @@ services:
     security_opt:
       - no-new-privileges:true
 
+  airflow-tests:
+    image: pipeline-tce-airflow-test:dev
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: test
+      args:
+        AIRFLOW_BASE_IMAGE: ${AIRFLOW_IMAGE:?Defina AIRFLOW_IMAGE no .env}
+        AIRFLOW_VERSION: ${AIRFLOW_VERSION:-2.10.4}
+        PYTHON_VERSION: ${AIRFLOW_PYTHON_VERSION:-3.10}
+    profiles: ["test"]
+    entrypoint: ["python", "-m", "pytest"]
+    command: ["/opt/airflow/tests", "-q"]
+    environment:
+      PYTHONPATH: /opt/airflow/pipeline-src
+    volumes:
+      - ./tests:/opt/airflow/tests:ro
+      - ./catalog:/opt/airflow/catalog:ro
+      - ./dags:/opt/airflow/dags:ro
+    security_opt:
+      - no-new-privileges:true
+
 volumes:
   airflow_metadata:
   airflow_logs:
+  airflow_pilot_data:

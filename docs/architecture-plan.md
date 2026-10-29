@@ -60,12 +60,14 @@ O código atual confirma paginação, retry/backoff para HTTP 400/429 e falhas d
 
 Antes de selecionar uma estratégia de compartilhamento, mapear dependências e separar o núcleo de ingestão das integrações de UI/Airflow. Opções a avaliar: pacote Python versionado (reuso e releases explícitos, com custo de empacotamento/manutenção); cópia controlada para a plataforma (autonomia e duplicação que exige sincronização); serviço remoto (isolamento maior e custo operacional/rede). Não escolher nem integrar até definir testes de compatibilidade e ownership dos schemas.
 
+Como primeira fatia independente, os dois catálogos JSON foram copiados com hash/proveniência para `catalog/`, e um cliente isolado implementa planejamento por partição, paginação, pacing conservador, retries e escrita atômica em volume de piloto separado. Essa fatia não reutiliza módulos runtime do projeto de origem, não executa validação/qualidade e não publica. Veja `docs/catalog-provenance.md` e `docs/airflow-orchestration.md`.
+
 Os schemas do projeto de origem são referência para entender contratos, mas a plataforma precisa ter contratos versionados e uma estratégia explícita de atualização. Não manter regras de validação duplicadas e divergentes entre validação linha a linha e qualidade.
 
 ## Etapas, gates e rollback
 
 1. **Preparação:** confirmar branch/fluxo Git e inventariar infraestrutura, storage, segurança, backup e versões. Registrar decisões e critérios de aceite. Nenhum deploy.
-2. **Especificação e desenho:** definir layout/contrato de partições, estados, checks bloqueantes, publicação e estratégia de compartilhamento do extrator. Criar implementação apenas após os gates de infraestrutura e governança aplicáveis.
+2. **Especificação e desenho:** definir layout/contrato de partições, estados, checks bloqueantes, publicação e estratégia de compartilhamento do extrator. A implementação de produção depende dos gates de infraestrutura e governança; o piloto manual isolado não publica nem acessa dados atuais.
 3. **Infra isolada:** subir ambiente de teste sem desligar nem modificar o atual. Armazenamento e credenciais separados. Sem dados de produção até aprovação.
 4. **Piloto:** executar partições controladas em área isolada; exercitar repetição, retomada, timeout, HTTP 400/429, falha parcial, ausência legítima, Parquet corrompido e publicação incompleta.
 5. **Comparação:** comparar schemas, contagens e resultados com o caminho atual; confirmar preservação dos marcadores de cache negativo e que carga inválida mantém a publicação anterior.

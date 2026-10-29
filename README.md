@@ -4,7 +4,7 @@ Plataforma independente para orquestrar a extração, validação e publicação
 
 ## Estado do projeto
 
-Esta é a fundação de desenvolvimento. Ainda não há integração com a API, storage de produção ou banco de consulta. Hospedagem, storage compartilhado, rede/TLS, recursos, versões suportadas e cutover permanecem pendentes de confirmação. **Não use para ingestão de produção nem migre dados.**
+Esta é a fundação de desenvolvimento. Há uma DAG manual para extrair **uma partição** à área local isolada `airflow_pilot_data`; ela não valida nem publica os dados. Storage compartilhado de produção, banco de consulta, rede/TLS, recursos, versões suportadas e cutover permanecem pendentes. **Não use para ingestão de produção nem migre dados.**
 
 Consulte [`docs/architecture-plan.md`](docs/architecture-plan.md) para arquitetura provisória, decisões, riscos e etapas de migração; e [`docs/airflow-orchestration.md`](docs/airflow-orchestration.md) para granularidade, estados, pools, logs e plano de implementação do Airflow. As referências ao Airflow antigo são históricas e não aprovam a mesma configuração para produção.
 
@@ -28,13 +28,37 @@ docker compose config --quiet
 Se o `grep` encontrar valores, substitua-os por valores válidos. Depois:
 
 ```bash
-docker compose up airflow-init
-docker compose up -d
+docker compose up -d --build
 ```
 
 A interface local fica em `http://127.0.0.1:8085` por padrão. O bind é configurável via `AIRFLOW_WEBSERVER_BIND`; não altere para `0.0.0.0` sem uma configuração aprovada de rede e proxy/TLS. O Compose contém apenas o banco de metadados isolado do Airflow; não monta o repositório de origem nem dados TCE.
 
-A DAG manual `platform_smoke_test` verifica que o scheduler e executor conseguem executar uma task. Ela não chama a API, não lê/escreve Parquets e não acessa banco analítico. Use **Trigger DAG** na UI para executá-la. Ela é somente um teste de infraestrutura, não uma carga TCE.
+O serviço `airflow-init` aplica migrações, cria o usuário admin apenas se ausente e configura `tce_api_pool` com um slot (limite serial conservador). Pode consultar a UI em Admin → Pools; não aumente os slots sem medir capacidade e confirmar limites da API.
+
+A DAG manual `platform_smoke_test` verifica que scheduler e executor conseguem executar uma task; não chama a API.
+
+A DAG manual `tce_extracao_piloto` aceita **uma partição explícita** e escreve somente no volume Docker `airflow_pilot_data`, isolado do projeto de origem e não compartilhado com consumidores. Para disparar, use **Trigger DAG** e informe, por exemplo:
+
+```json
+{
+  "endpoint_prefix": "notas_empenho",
+  "year": 2024,
+  "month": 1,
+  "municipality_code": "057"
+}
+```
+
+O prefixo deve existir no catálogo, município deve estar no catálogo oficial e endpoints anuais não recebem `month`. Os limites HTTP começam serializados: uma chamada por vez no pool, intervalo mínimo de 1,5 s, timeout de 90 s, retry/backoff para HTTP 400/429 e falhas transitórias. O cliente não imprime corpo da API nem query string nos logs. A repetição preserva Parquet válido; arquivo corrompido só é substituído depois de uma resposta completa e gravação atômica. Ausência histórica gera marcador Parquet de zero colunas; ausência no ano corrente não é cacheada.
+
+Essa DAG é um **piloto de extração**, não é validação contratual/qualidade e não publica dados. Não use para cargas amplas. Para inspeção do artefato do piloto, veja `/opt/airflow/pilot-data` dentro do scheduler; não copie esse volume como datalake de produção.
+
+Os catálogos versionados em `catalog/` são cópias controladas de `endpoints.json` e `municipios.json` do projeto de origem, sem import em runtime. Consulte [`docs/catalog-provenance.md`](docs/catalog-provenance.md).
+
+Para executar os testes automatizados no container de teste (inclui imports das DAGs e testes HTTP mockados, sem chamadas à API):
+
+```bash
+docker compose --profile test run --build --rm airflow-tests
+```
 
 Para parar os containers sem remover volumes:
 
@@ -46,9 +70,10 @@ Não use `docker compose down -v` em ambiente com estado que precise ser preserv
 
 ## Componentes previstos
 
-- `dags/`: DAGs independentes (recorrência, backfill, reparação e publicação serão separadas).
-- `src/`: ingestão, schemas, validação, qualidade, storage e publicação, a implementar após contratos e infraestrutura serem definidos.
-- `tests/`: testes automatizados sem dependência de API real.
+- `catalog/`: cópias versionadas de endpoints e municípios.
+- `dags/`: smoke test e piloto de uma partição; recorrência, backfill, reparação e publicação permanecem etapas futuras.
+- `src/pipeline_tce/ingestion/`: catálogo, planejamento, retry/backoff, limitação de chamadas e gravação atômica do piloto.
+- `tests/`: testes automatizados sem chamadas à API real.
 - `docs/architecture-plan.md`: decisões e gates de infraestrutura/migração.
 
 ## Segurança e operação
