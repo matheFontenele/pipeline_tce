@@ -6,7 +6,7 @@ Plataforma independente para orquestrar a extração, validação e publicação
 
 Esta é a fundação de desenvolvimento. Ainda não há integração com a API, storage de produção ou banco de consulta. Hospedagem, storage compartilhado, rede/TLS, recursos, versões suportadas e cutover permanecem pendentes de confirmação. **Não use para ingestão de produção nem migre dados.**
 
-Consulte [`docs/architecture-plan.md`](docs/architecture-plan.md) para arquitetura provisória, decisões, riscos e etapas de migração. As referências ao Airflow antigo são históricas e não aprovam a mesma configuração para produção.
+Consulte [`docs/architecture-plan.md`](docs/architecture-plan.md) para arquitetura provisória, decisões, riscos e etapas de migração; e [`docs/airflow-orchestration.md`](docs/airflow-orchestration.md) para granularidade, estados, pools, logs e plano de implementação do Airflow. As referências ao Airflow antigo são históricas e não aprovam a mesma configuração para produção.
 
 ## Desenvolvimento local
 
