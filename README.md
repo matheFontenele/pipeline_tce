@@ -32,7 +32,9 @@ docker compose up airflow-init
 docker compose up -d
 ```
 
-A interface local fica em `http://127.0.0.1:8085` por padrão. O bind é configurável via `AIRFLOW_WEBSERVER_BIND`; não altere para `0.0.0.0` sem uma configuração aprovada de rede e proxy/TLS. O Compose contém apenas o banco de metadados isolado do Airflow; não monta o repositório de origem nem dados TCE. Não existe DAG de ingestão habilitada nesta fundação.
+A interface local fica em `http://127.0.0.1:8085` por padrão. O bind é configurável via `AIRFLOW_WEBSERVER_BIND`; não altere para `0.0.0.0` sem uma configuração aprovada de rede e proxy/TLS. O Compose contém apenas o banco de metadados isolado do Airflow; não monta o repositório de origem nem dados TCE.
+
+A DAG manual `platform_smoke_test` verifica que o scheduler e executor conseguem executar uma task. Ela não chama a API, não lê/escreve Parquets e não acessa banco analítico. Use **Trigger DAG** na UI para executá-la. Ela é somente um teste de infraestrutura, não uma carga TCE.
 
 Para parar os containers sem remover volumes:
 
