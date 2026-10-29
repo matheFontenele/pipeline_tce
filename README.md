@@ -10,16 +10,24 @@ Consulte [`docs/architecture-plan.md`](docs/architecture-plan.md) para arquitetu
 
 ## Desenvolvimento local
 
-Requisitos: Docker Engine e Docker Compose v2. Não é necessário Python instalado no host.
+Requisitos: Docker Engine, Docker Compose v2 e `openssl`. Não é necessário Python instalado no host.
 
 ```bash
-cp .env.example .env
+bash scripts/configurar-ambiente.sh
 ```
 
-Edite `.env` e substitua todos os valores `REPLACE_*` por segredos únicos gerados localmente. Não use os valores de exemplo em produção nem compartilhe o arquivo. Para evitar caracteres especiais não escapados na URL SQLAlchemy, gere a senha do banco como hexadecimal, por exemplo `openssl rand -hex 32`. Gere a Fernet key com a biblioteca da imagem selecionada, por exemplo `docker run --rm "$AIRFLOW_IMAGE" python -c 'from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())'`; gere também uma secret key aleatória. Nunca registre segredos no Git.
+O script cria `.env` apenas se ainda não existir, gera segredos locais e restringe as permissões do arquivo. Ele imprime a senha inicial do usuário admin uma vez para permitir o login; guarde-a em um local seguro. Nunca compartilhe nem versione `.env`. Se o `.env` já existir, o script não o sobrescreve: revise suas variáveis obrigatórias manualmente.
+
+Antes de iniciar, confira que não há valores `REPLACE_*`:
 
 ```bash
+grep -n 'REPLACE_' .env
 docker compose config --quiet
+```
+
+Se o `grep` encontrar valores, substitua-os por valores válidos. Depois:
+
+```bash
 docker compose up airflow-init
 docker compose up -d
 ```
