@@ -13,5 +13,14 @@ def test_airflow_dags_carregam_sem_erro_de_importacao():
     pilot = dag_bag.dags["tce_extracao_piloto"]
     assert pilot.schedule_interval is None
     assert pilot.max_active_runs == 1
+    assert {
+        name: param.value
+        for name, param in pilot.params.items()
+    } == {
+        "endpoint_prefix": "notas_empenho",
+        "year": 2024,
+        "month": 1,
+        "municipality_code": "057",
+    }
     task = pilot.get_task("extrair_uma_particao")
     assert task.pool == "tce_api_pool"

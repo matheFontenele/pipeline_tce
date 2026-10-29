@@ -35,7 +35,7 @@ A interface local fica em `http://127.0.0.1:8085` por padrão. O bind é configu
 
 O serviço `airflow-init` aplica migrações, cria o usuário admin apenas se ausente e configura `tce_api_pool` com um slot (limite serial conservador). Pode consultar a UI em Admin → Pools; não aumente os slots sem medir capacidade e confirmar limites da API.
 
-A DAG manual `tce_extracao_piloto` aceita **uma partição explícita** e escreve somente no volume Docker `airflow_pilot_data`, isolado do projeto de origem e não compartilhado com consumidores. Para disparar, use **Trigger DAG** e informe, por exemplo:
+A DAG manual `tce_extracao_piloto` aceita **uma partição por execução** e escreve somente no volume Docker `airflow_pilot_data`, isolado do projeto de origem e não compartilhado com consumidores. O formulário **Trigger DAG** apresenta quatro campos preenchidos inicialmente com `notas_empenho`, ano `2024`, mês `1` e município `057`; revise-os antes de confirmar, pois clicar em disparar com esses valores executa essa partição e pode consultar a API. Para solicitar outra partição, informe os valores correspondentes; pela CLI, use `--conf` com o JSON abaixo:
 
 ```json
 {

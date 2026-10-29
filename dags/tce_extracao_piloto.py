@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 
 from airflow.decorators import dag, task
+from airflow.models.param import Param
 
 
 @dag(
@@ -17,6 +18,34 @@ from airflow.decorators import dag, task
     start_date=datetime(2026, 1, 1),
     catchup=False,
     max_active_runs=1,
+    params={
+        "endpoint_prefix": Param(
+            "notas_empenho",
+            type="string",
+            minLength=1,
+            description="Prefixo do endpoint no catálogo versionado.",
+        ),
+        "year": Param(
+            2024,
+            type="integer",
+            minimum=2008,
+            maximum=2100,
+            description="Ano da partição piloto.",
+        ),
+        "month": Param(
+            1,
+            type="integer",
+            minimum=1,
+            maximum=12,
+            description="Mês (1–12); usado por endpoints mensais.",
+        ),
+        "municipality_code": Param(
+            "057",
+            type="string",
+            pattern="^[0-9]{3}$",
+            description="Código de três dígitos do município.",
+        ),
+    },
     default_args={
         "owner": "tce-platform",
         "retries": 1,
@@ -50,18 +79,20 @@ def tce_extracao_piloto():
         conf = getattr(dag_run, "conf", None) or {}
         if not isinstance(conf, dict):
             raise ValueError("A configuração do run deve ser um objeto JSON")
+        run_params = dict(context.get("params") or {})
+        run_params.update(conf)
         required = {"endpoint_prefix", "year", "municipality_code"}
-        missing = sorted(required - conf.keys())
+        missing = sorted(required - run_params.keys())
         if missing:
             raise ValueError(f"Confirme os parâmetros obrigatórios: {', '.join(missing)}")
 
-        endpoint_prefix = str(conf["endpoint_prefix"])
+        endpoint_prefix = str(run_params["endpoint_prefix"])
         try:
-            if isinstance(conf["year"], bool) or isinstance(conf.get("month"), bool):
+            if isinstance(run_params["year"], bool) or isinstance(run_params.get("month"), bool):
                 raise ValueError
-            year = int(conf["year"])
-            municipality_code = str(conf["municipality_code"]).zfill(3)
-            month_value = conf.get("month")
+            year = int(run_params["year"])
+            municipality_code = str(run_params["municipality_code"]).zfill(3)
+            month_value = run_params.get("month")
             month = int(month_value) if month_value is not None else None
         except (TypeError, ValueError) as exc:
             raise ValueError("Ano, mês ou código de município inválido") from exc
