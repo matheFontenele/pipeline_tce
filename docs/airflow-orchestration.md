@@ -9,6 +9,7 @@
 - `tce_extracao_piloto` é manual e exige exatamente uma partição por `dag_run.conf`; está vinculada ao pool `tce_api_pool` (um slot por padrão) e `max_active_runs=1`.
 - `tce_planejamento_lote` é uma prévia manual do catálogo completo e intervalo de anos para todos os municípios (12 meses por ano se o endpoint for mensal); apenas conta arquivos existentes e candidatas, sem API ou gravações.
 - `tce_extracao_lote` extrai um lote limitado (teto de partições, 3 workers, circuit breaker após 15 falhas consecutivas, progresso com taxa/ETA e resumo) reaproveitando as decisões operacionais do extrator anterior, reimplementadas no pacote próprio. Retoma pelo Parquet existente e grava apenas no volume isolado.
+- O extrator mede ocupação do filesystem de saída antes de chamadas e gravações. `TCE_PILOT_MAX_DISK_USAGE=0.90` interrompe no limite sem retry do Airflow; falha a task e preserva arquivos finais concluídos.
 - O cliente pagina de 1.000 em 1.000, espaça requests por 1,5 s, mantém uma chamada ativa por pool, respeita retry/backoff para HTTP 400/429 e falhas transitórias, e não registra corpo da resposta/query string.
 - A extração piloto grava apenas no volume Docker `airflow_pilot_data`, usa escrita atômica, preserva Parquet válido e reconhece marcador zero-colunas. Não valida schema/qualidade e não publica.
 - Imagem Airflow própria instala pandas/PyArrow/requests contra o constraints file da versão configurada; imagem de teste separada adiciona pytest. Testes mockados não chamam a API.

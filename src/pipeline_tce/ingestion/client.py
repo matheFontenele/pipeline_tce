@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import math
 import os
+import shutil
 import tempfile
 import threading
 import time
@@ -29,6 +30,10 @@ class TceApiError(RuntimeError):
 
 class TceRateLimitError(TceApiError):
     """A API continuou limitando chamadas após o orçamento de tentativas."""
+
+
+class PilotStorageLimitError(TceApiError):
+    """O volume isolado atingiu o limite preventivo de ocupação."""
 
 
 @dataclass(frozen=True)
@@ -72,6 +77,36 @@ def retry_policy_from_env(environ: dict[str, str] | None = None) -> RetryPolicy:
         max_backoff_seconds=float(values.get("TCE_HTTP_MAX_BACKOFF_SECONDS", "300")),
         max_retry_after_seconds=float(values.get("TCE_HTTP_MAX_RETRY_AFTER_SECONDS", "900")),
     )
+
+
+def pilot_storage_limit_from_env(environ: dict[str, str] | None = None) -> float:
+    values = os.environ if environ is None else environ
+    try:
+        limit = float(values.get("TCE_PILOT_MAX_DISK_USAGE", "0.90"))
+    except (TypeError, ValueError) as exc:
+        raise ValueError("TCE_PILOT_MAX_DISK_USAGE deve ser uma fração entre 0 e 1") from exc
+    if not math.isfinite(limit) or not 0 < limit <= 1:
+        raise ValueError("TCE_PILOT_MAX_DISK_USAGE deve ser uma fração entre 0 e 1")
+    return limit
+
+
+def ensure_pilot_storage_below_limit(
+    output_dir: Path, max_usage: float | None = None
+) -> float:
+    """Aborta antes de trabalhar se o filesystem do volume atingiu o limite."""
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    limit = pilot_storage_limit_from_env() if max_usage is None else max_usage
+    if not math.isfinite(limit) or not 0 < limit <= 1:
+        raise ValueError("O limite de ocupação deve ser uma fração entre 0 e 1")
+    usage = shutil.disk_usage(output_dir)
+    ratio = usage.used / usage.total if usage.total else 1.0
+    if ratio >= limit:
+        raise PilotStorageLimitError(
+            "Limite preventivo do volume piloto atingido: "
+            f"ocupação={ratio:.1%}, limite={limit:.1%}; lote interrompido"
+        )
+    return ratio
 
 
 class RequestPacer:
@@ -261,6 +296,7 @@ def extract_partition(
     policy: RetryPolicy | None = None,
     pacer: RequestPacer | None = None,
     today: date | None = None,
+    max_disk_usage: float | None = None,
 ) -> dict[str, Any]:
     """Extrai uma partição e escreve atomicamente no destino isolado informado."""
     output_dir = Path(output_dir).resolve()
@@ -273,6 +309,7 @@ def extract_partition(
     if destination.exists():
         log.warning("Parquet inválido será recuperado; endpoint=%s arquivo=%s", partition.endpoint.prefix, destination.name)
 
+    ensure_pilot_storage_below_limit(output_dir, max_disk_usage)
     policy = policy or RetryPolicy()
     pacer = pacer or RequestPacer(policy.min_interval_seconds)
     own_session = session is None
@@ -297,6 +334,7 @@ def extract_partition(
             temporary_name = temporary.name
 
         while True:
+            ensure_pilot_storage_below_limit(output_dir, max_disk_usage)
             params["$start_index"] = offset
             rows = _fetch_page(session, partition, params, policy, pacer)
             page_number += 1
@@ -342,6 +380,7 @@ def extract_partition(
                     table = pa.Table.from_arrays(arrays, schema=schema)
 
                 assert writer is not None
+                ensure_pilot_storage_below_limit(output_dir, max_disk_usage)
                 writer.write_table(table)
                 rows_written += table.num_rows
                 log.info(
@@ -377,6 +416,7 @@ def extract_partition(
             os.unlink(temporary_name)
         if partition.year < current_year:
             # Semântica herdada: zero colunas é cache negativo intencional.
+            ensure_pilot_storage_below_limit(output_dir, max_disk_usage)
             _write_parquet_atomic(pd.DataFrame(), destination)
             status = "no_data_cached"
         else:
@@ -384,6 +424,12 @@ def extract_partition(
         result = {"status": status, "file": destination.name, "rows": 0}
     else:
         assert temporary_name is not None
+        try:
+            ensure_pilot_storage_below_limit(output_dir, max_disk_usage)
+        except Exception:
+            if os.path.exists(temporary_name):
+                os.unlink(temporary_name)
+            raise
         os.replace(temporary_name, destination)
         result = {"status": "downloaded", "file": destination.name, "rows": rows_written}
 

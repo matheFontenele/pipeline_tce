@@ -1,5 +1,6 @@
 from datetime import date
 from pathlib import Path
+import shutil
 from unittest.mock import Mock
 
 import pandas as pd
@@ -11,9 +12,11 @@ from pipeline_tce.ingestion.catalog import Endpoint, Municipality
 from pipeline_tce.ingestion.client import (
     RequestPacer,
     RetryPolicy,
+    PilotStorageLimitError,
     TceApiError,
     TceRateLimitError,
     extract_partition,
+    pilot_storage_limit_from_env,
     retry_policy_from_env,
 )
 from pipeline_tce.ingestion.planning import build_partition
@@ -27,6 +30,14 @@ ENDPOINT = Endpoint(
     ("exercicio_orcamento", "codigo_municipio", "data_referencia_doc"),
 )
 MUNICIPALITY = Municipality("057", "FORTALEZA")
+
+
+@pytest.fixture(autouse=True)
+def _filesystem_de_teste_abaixo_do_limite(monkeypatch):
+    monkeypatch.setattr(
+        "pipeline_tce.ingestion.client.shutil.disk_usage",
+        lambda _: shutil._ntuple_diskusage(used=50, total=100, free=50),
+    )
 
 
 class FakeResponse:
@@ -139,6 +150,68 @@ def test_schema_novo_entre_paginas_falha_sem_substituir_arquivo_existente(tmp_pa
 
     assert target.read_bytes() == original
     assert list(tmp_path.glob("*.tmp")) == []
+
+
+def test_volume_em_90_porcento_aborta_antes_de_chamar_api(tmp_path, monkeypatch):
+    session = Mock()
+    monkeypatch.setattr(
+        "pipeline_tce.ingestion.client.shutil.disk_usage",
+        lambda _: shutil._ntuple_diskusage(used=90, total=100, free=10),
+    )
+
+    with pytest.raises(PilotStorageLimitError, match="ocupação=90.0%"):
+        extract_partition(
+            _partition(),
+            tmp_path,
+            session=session,
+            policy=_fast_policy(),
+            pacer=_no_wait_pacer(),
+            max_disk_usage=0.9,
+        )
+
+    session.get.assert_not_called()
+    assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.parametrize("value", ["0", "1.1", "nan", "inf", "bad"])
+def test_limite_de_disco_rejeita_configuracao_invalida(value):
+    with pytest.raises(ValueError, match="TCE_PILOT_MAX_DISK_USAGE"):
+        pilot_storage_limit_from_env({"TCE_PILOT_MAX_DISK_USAGE": value})
+
+
+def test_volume_que_atinge_limite_no_meio_da_particao_descarta_temporario(
+    tmp_path, monkeypatch
+):
+    session = Mock()
+    partition = _partition()
+    partition = partition.__class__(
+        partition.endpoint,
+        partition.year,
+        partition.month,
+        partition.municipality,
+        {**partition.params, "$count": 1},
+    )
+    session.get.return_value = FakeResponse(
+        payload={"elements": [{"exercicio_orcamento": 202500, "valor": 1}]}
+    )
+    usages = iter((50, 50, 50, 90))
+    monkeypatch.setattr(
+        "pipeline_tce.ingestion.client.shutil.disk_usage",
+        lambda _: shutil._ntuple_diskusage(used=(used := next(usages)), total=100, free=100-used),
+    )
+
+    with pytest.raises(PilotStorageLimitError, match="ocupação=90.0%"):
+        extract_partition(
+            partition,
+            tmp_path,
+            session=session,
+            policy=_fast_policy(),
+            pacer=_no_wait_pacer(),
+            max_disk_usage=0.9,
+        )
+
+    assert session.get.call_count == 1
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_http_429_respeita_retry_after_e_retorna_sucesso(tmp_path):

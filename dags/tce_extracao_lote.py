@@ -84,6 +84,7 @@ def tce_extracao_lote():
         ),
     )
     def extrair_lote(**context):
+        from airflow.exceptions import AirflowFailException
         from pipeline_tce.ingestion.batch import BatchPolicy, iter_partitions, run_batch
         from pipeline_tce.ingestion.catalog import load_endpoints, load_municipalities
         from pipeline_tce.ingestion.client import retry_policy_from_env
@@ -132,6 +133,11 @@ def tce_extracao_lote():
             policy=policy,
             retry_policy=retry_policy_from_env(),
         )
+        if summary["storage_limit_reached"]:
+            raise AirflowFailException(
+                "Lote interrompido: volume piloto atingiu o limite de ocupação configurado. "
+                "Confira o espaço antes de iniciar outra execução."
+            )
         if summary["hit_partition_cap"]:
             logging.warning(
                 "Teto de %s partições atingido; o lote tem mais itens pendentes. "

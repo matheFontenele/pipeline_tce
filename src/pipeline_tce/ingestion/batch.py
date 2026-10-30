@@ -12,7 +12,12 @@ from pathlib import Path
 from typing import Any
 
 from pipeline_tce.ingestion.catalog import Endpoint, Municipality
-from pipeline_tce.ingestion.client import RequestPacer, RetryPolicy, extract_partition
+from pipeline_tce.ingestion.client import (
+    PilotStorageLimitError,
+    RequestPacer,
+    RetryPolicy,
+    extract_partition,
+)
 from pipeline_tce.ingestion.planning import Partition, build_partition
 
 log = logging.getLogger(__name__)
@@ -103,6 +108,7 @@ def run_batch(
     submitted = processed = 0
     consecutive_failures = 0
     circuit_open = False
+    storage_limit_reached = False
     plan_complete = False
     iterator = iter(partitions)
 
@@ -139,6 +145,14 @@ def run_batch(
                 processed += 1
                 try:
                     result = future.result()
+                except PilotStorageLimitError as exc:
+                    counters["failed"] += 1
+                    storage_limit_reached = True
+                    circuit_open = True
+                    log.error(
+                        "%s; parando novas partições. Arquivos já concluídos foram preservados.",
+                        exc,
+                    )
                 except Exception as exc:  # noqa: BLE001 - agrega qualquer falha por partição
                     counters["failed"] += 1
                     consecutive_failures += 1
@@ -204,18 +218,20 @@ def run_batch(
         "plan_complete": plan_complete,
         "hit_partition_cap": not plan_complete and submitted >= policy.max_partitions,
         "circuit_breaker_open": circuit_open,
+        "storage_limit_reached": storage_limit_reached,
         "status_counts": dict(counters),
         "elapsed_seconds": round(elapsed, 1),
     }
     log.info(
         "RESUMO DO LOTE: submetidas=%s processadas=%s plano_completo=%s "
-        "teto_atingido=%s circuit_breaker=%s baixados=%s existentes=%s "
+        "teto_atingido=%s circuit_breaker=%s limite_storage=%s baixados=%s existentes=%s "
         "vazios=%s sem_cache=%s falhas=%s duracao=%.1fs",
         submitted,
         processed,
         plan_complete,
         summary["hit_partition_cap"],
         circuit_open,
+        storage_limit_reached,
         counters["downloaded"],
         counters["already_present"],
         counters["no_data_cached"],

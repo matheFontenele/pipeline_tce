@@ -52,6 +52,8 @@ Para extrair em lote, use `tce_extracao_lote`. Os padrões são conservadores: t
 
 O prefixo deve existir no catálogo, município deve estar no catálogo oficial e endpoints anuais não recebem `month`. Os limites HTTP começam serializados: uma chamada por vez no pool, intervalo mínimo de 1,5 s, timeout de 90 s, retry/backoff para HTTP 400/429 e falhas transitórias. O cliente não imprime corpo da API nem query string nos logs. A repetição preserva Parquet válido; arquivo corrompido só é substituído depois de uma resposta completa e gravação atômica. Ausência histórica gera marcador Parquet de zero colunas; ausência no ano corrente não é cacheada.
 
+O volume `airflow_pilot_data` tem limite preventivo de ocupação em disco configurável por `TCE_PILOT_MAX_DISK_USAGE` (padrão `0.90`). O cliente verifica o filesystem antes das chamadas e antes de gravar páginas; ao atingir 90%, interrompe a partição e o lote sem retry automático. Parquets finais concluídos são preservados; o arquivo temporário da partição em curso é descartado. Esse limite mede disco do filesystem, não RAM.
+
 Essa DAG é um **piloto de extração**, não é validação contratual/qualidade e não publica dados. Não use para cargas amplas. Para inspeção do artefato do piloto, veja `/opt/airflow/pilot-data` dentro do scheduler; não copie esse volume como datalake de produção.
 
 Os catálogos versionados em `catalog/` são cópias controladas de `endpoints.json` e `municipios.json` do projeto de origem, sem import em runtime. Consulte [`docs/catalog-provenance.md`](docs/catalog-provenance.md).
