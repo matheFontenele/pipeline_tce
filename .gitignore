@@ -10,3 +10,4 @@ airflow-logs/
 data/
 artifacts/
 .DS_Store
+TODO.local.md

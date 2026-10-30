@@ -46,6 +46,10 @@ A DAG manual `tce_extracao_piloto` aceita **uma partição por execução** e es
 }
 ```
 
+Para estimar busca em massa sem chamar a API, use a DAG manual `tce_planejamento_lote`, informando o intervalo de anos. Ela inclui todos os endpoints e municípios; para endpoints mensais, considera os 12 meses de cada ano. O padrão é 2008–2026. O resultado distingue total, partições com arquivo já existente e candidatas, inclusive um resumo por endpoint. A existência não garante que o arquivo seja válido. Esta DAG é somente prévia: não baixa, valida nem altera arquivos.
+
+Para extrair em lote, use `tce_extracao_lote`. Os padrões são conservadores: todos os endpoints, ano `2024`, município `057`, teto de **500 partições** e **3 requisições simultâneas**. O lote inclui apenas o que ainda não existe; repetir a execução retoma de onde parou. Ele interrompe após 15 falhas consecutivas (circuit breaker) e registra progresso a cada 100 partições ou 15 s, com taxa e ETA. Aumentar `max_partitions` ou remover o filtro de município amplia o tempo e o volume; faça isso só depois de medir com um lote pequeno. Continua sem validação contratual e sem publicação.
+
 O prefixo deve existir no catálogo, município deve estar no catálogo oficial e endpoints anuais não recebem `month`. Os limites HTTP começam serializados: uma chamada por vez no pool, intervalo mínimo de 1,5 s, timeout de 90 s, retry/backoff para HTTP 400/429 e falhas transitórias. O cliente não imprime corpo da API nem query string nos logs. A repetição preserva Parquet válido; arquivo corrompido só é substituído depois de uma resposta completa e gravação atômica. Ausência histórica gera marcador Parquet de zero colunas; ausência no ano corrente não é cacheada.
 
 Essa DAG é um **piloto de extração**, não é validação contratual/qualidade e não publica dados. Não use para cargas amplas. Para inspeção do artefato do piloto, veja `/opt/airflow/pilot-data` dentro do scheduler; não copie esse volume como datalake de produção.

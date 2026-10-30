@@ -10,7 +10,7 @@ from pipeline_tce.ingestion.catalog import (
     load_endpoints,
     load_municipalities,
 )
-from pipeline_tce.ingestion.planning import build_partition
+from pipeline_tce.ingestion.planning import build_partition, plan_catalog_range, plan_year
 
 
 CATALOG = Path(__file__).parents[1] / "catalog"
@@ -69,6 +69,61 @@ def test_endpoint_mensal_monta_janela_correta_para_fevereiro_bissexto():
 
     assert partition.params["data_inicio"] == "20240201"
     assert partition.params["data_fim"] == "20240229"
+
+
+@pytest.mark.parametrize(("frequency", "expected"), [("anual", 2), ("mensal", 24)])
+def test_plan_year_conta_municipios_e_pula_arquivos_existentes(
+    tmp_path, frequency, expected
+):
+    endpoint = Endpoint(
+        "Teste",
+        "https://api-dados-abertos.tce.ce.gov.br/sim/teste",
+        "teste",
+        frequency,
+        ("codigo_municipio",),
+    )
+    municipalities = {
+        "001": Municipality("001", "A"),
+        "002": Municipality("002", "B"),
+    }
+    existing_name = "teste_2024_01_001.parquet" if frequency == "mensal" else "teste_2024_001.parquet"
+    (tmp_path / existing_name).touch()
+
+    result = plan_year(endpoint, 2024, municipalities, tmp_path)
+
+    assert result == {
+        "total": expected,
+        "existing": 1,
+        "to_process": expected - 1,
+    }
+
+
+def test_plan_catalogo_range_conta_endpoints_anuais_e_mensais(tmp_path):
+    endpoints = {
+        "anual": Endpoint(
+            "Anual", "https://api-dados-abertos.tce.ce.gov.br/sim/anual", "anual",
+            "anual", ("codigo_municipio",),
+        ),
+        "mensal": Endpoint(
+            "Mensal", "https://api-dados-abertos.tce.ce.gov.br/sim/mensal", "mensal",
+            "mensal", ("codigo_municipio",),
+        ),
+    }
+    municipalities = {
+        "001": Municipality("001", "A"),
+        "002": Municipality("002", "B"),
+    }
+    (tmp_path / "mensal_2024_01_001.parquet").touch()
+
+    result = plan_catalog_range(endpoints, municipalities, 2024, 2024, tmp_path)
+
+    assert result["anual"] == {"total": 2, "existing": 0, "to_process": 2}
+    assert result["mensal"] == {"total": 24, "existing": 1, "to_process": 23}
+
+
+def test_plan_catalogo_rejeita_intervalo_invalido(tmp_path):
+    with pytest.raises(ValueError, match="Intervalo"):
+        plan_catalog_range({}, {}, 2025, 2024, tmp_path)
 
 
 def test_catalogo_rejeita_host_fora_da_api_tce(tmp_path):

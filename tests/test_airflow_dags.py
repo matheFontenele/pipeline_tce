@@ -9,6 +9,8 @@ def test_airflow_dags_carregam_sem_erro_de_importacao():
 
     assert dag_bag.import_errors == {}
     assert "tce_extracao_piloto" in dag_bag.dags
+    assert "tce_planejamento_lote" in dag_bag.dags
+    assert "tce_extracao_lote" in dag_bag.dags
     assert "platform_smoke_test" not in dag_bag.dags
     pilot = dag_bag.dags["tce_extracao_piloto"]
     assert pilot.schedule_interval is None
@@ -24,3 +26,6 @@ def test_airflow_dags_carregam_sem_erro_de_importacao():
     }
     task = pilot.get_task("extrair_uma_particao")
     assert task.pool == "tce_api_pool"
+    batch = dag_bag.dags["tce_extracao_lote"]
+    assert batch.max_active_runs == 1
+    assert batch.get_task("extrair_lote").pool == "tce_api_pool"

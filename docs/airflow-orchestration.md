@@ -7,6 +7,8 @@
 
 - Catálogos `endpoints.json` e `municipios.json` copiados com proveniência/hash e validados antes do uso; nenhuma importação do checkout antigo.
 - `tce_extracao_piloto` é manual e exige exatamente uma partição por `dag_run.conf`; está vinculada ao pool `tce_api_pool` (um slot por padrão) e `max_active_runs=1`.
+- `tce_planejamento_lote` é uma prévia manual do catálogo completo e intervalo de anos para todos os municípios (12 meses por ano se o endpoint for mensal); apenas conta arquivos existentes e candidatas, sem API ou gravações.
+- `tce_extracao_lote` extrai um lote limitado (teto de partições, 3 workers, circuit breaker após 15 falhas consecutivas, progresso com taxa/ETA e resumo) reaproveitando as decisões operacionais do extrator anterior, reimplementadas no pacote próprio. Retoma pelo Parquet existente e grava apenas no volume isolado.
 - O cliente pagina de 1.000 em 1.000, espaça requests por 1,5 s, mantém uma chamada ativa por pool, respeita retry/backoff para HTTP 400/429 e falhas transitórias, e não registra corpo da resposta/query string.
 - A extração piloto grava apenas no volume Docker `airflow_pilot_data`, usa escrita atômica, preserva Parquet válido e reconhece marcador zero-colunas. Não valida schema/qualidade e não publica.
 - Imagem Airflow própria instala pandas/PyArrow/requests contra o constraints file da versão configurada; imagem de teste separada adiciona pytest. Testes mockados não chamam a API.
@@ -14,6 +16,14 @@
 Essa configuração só valida um piloto controlado; não é o limite de produção aprovado. Slots, intervalos, timeouts e backoffs devem ser calibrados com observação controlada e recursos medidos antes de aumentar volume.
 
 ## Decisões adotadas
+
+### Prévia de lotes
+
+**Contexto:** estimar uma busca em massa sem iniciar chamadas imprevisíveis à API. **Decisão:** a prévia abrange todos os endpoints e municípios em intervalo explícito de anos; endpoints mensais abrangem os 12 meses por ano. O padrão 2008–2026 reproduz o escopo histórico estimado, mas não dispara extração. A DAG `tce_planejamento_lote` apenas conta partições e nomes de arquivos existentes no volume isolado. **Motivo:** torna o custo visível sem adicionar tasks em massa nem causar efeitos externos. **Alternativas descartadas nesta etapa:** varrer/extrair todo o histórico automaticamente ou expandir uma task por partição; ampliam chamadas e pressão no scheduler sem estimativa prévia. Arquivo existente é apenas uma contagem por nome, não atestado de validade. Execução em lote fica para etapa posterior, após revisar a prévia e definir tamanho/limites.
+
+### Execução em lote
+
+**Contexto:** o extrator anterior roda a matriz completa dentro de um processo, com 3 threads, circuit breaker e progresso, comportamento validado em produção. **Decisão:** portar essas decisões para `src/pipeline_tce/ingestion/batch.py` e expô-las na DAG manual `tce_extracao_lote`, sem importar o projeto de origem em runtime. Mantidos: 3 workers padrão, intervalo mínimo compartilhado entre threads, circuit breaker após 15 falhas consecutivas e log de progresso com taxa/ETA. Acrescentados: teto explícito de partições por execução e resumo agregado em log. **Motivo:** preservar o que já funcionava em volume e, ao mesmo tempo, tornar cada run limitada e retomável. **Alternativas descartadas:** uma task mapeada por partição (milhares de tasks no scheduler) e execução sem teto (runs longas e difícil diagnóstico). O teto é intencionalmente baixo por padrão; ampliá-lo exige medir disco, memória e comportamento da API. A retomada continua baseada na existência de Parquet válido, não em estado persistido.
 
 ### DAGs por finalidade
 
