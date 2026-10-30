@@ -81,7 +81,7 @@ def test_extrai_paginado_e_escreve_parquet_atomico(tmp_path):
     assert session.get.call_args.kwargs["params"]["$start_index"] == 0
 
 
-def test_pagina_proxima_ate_receber_menos_registros_que_o_limite(tmp_path):
+def test_pagina_proxima_ate_receber_menos_registros_que_o_limite(tmp_path, caplog):
     session = Mock()
     first_page = [{"exercicio_orcamento": 202500, "id": i} for i in range(2)]
     session.get.side_effect = [
@@ -105,6 +105,40 @@ def test_pagina_proxima_ate_receber_menos_registros_que_o_limite(tmp_path):
     assert result["rows"] == 3
     assert session.get.call_count == 2
     assert session.get.call_args_list[1].kwargs["params"]["$start_index"] == 2
+    assert "página=1" in caplog.text
+    assert "página=2" in caplog.text
+    assert "registros_acumulados=3" in caplog.text
+
+
+def test_schema_novo_entre_paginas_falha_sem_substituir_arquivo_existente(tmp_path):
+    partition = _partition()
+    target = tmp_path / partition.filename
+    original = b"parquet anterior corrompido"
+    target.write_bytes(original)
+    session = Mock()
+    session.get.side_effect = [
+        FakeResponse(payload={"elements": [{"exercicio_orcamento": 202500, "a": 1}]}),
+        FakeResponse(payload={"elements": [{"exercicio_orcamento": 202500, "b": 2}]}),
+    ]
+    partition = partition.__class__(
+        partition.endpoint,
+        partition.year,
+        partition.month,
+        partition.municipality,
+        {**partition.params, "$count": 1},
+    )
+
+    with pytest.raises(TceApiError, match="Schema mudou entre páginas"):
+        extract_partition(
+            partition,
+            tmp_path,
+            session=session,
+            policy=_fast_policy(),
+            pacer=_no_wait_pacer(),
+        )
+
+    assert target.read_bytes() == original
+    assert list(tmp_path.glob("*.tmp")) == []
 
 
 def test_http_429_respeita_retry_after_e_retorna_sucesso(tmp_path):

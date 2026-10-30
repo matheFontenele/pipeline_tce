@@ -25,6 +25,10 @@ Essa configuração só valida um piloto controlado; não é o limite de produç
 
 **Contexto:** o extrator anterior roda a matriz completa dentro de um processo, com 3 threads, circuit breaker e progresso, comportamento validado em produção. **Decisão:** portar essas decisões para `src/pipeline_tce/ingestion/batch.py` e expô-las na DAG manual `tce_extracao_lote`, sem importar o projeto de origem em runtime. Mantidos: 3 workers padrão, intervalo mínimo compartilhado entre threads, circuit breaker após 15 falhas consecutivas e log de progresso com taxa/ETA. Acrescentados: teto explícito de partições por execução e resumo agregado em log. **Motivo:** preservar o que já funcionava em volume e, ao mesmo tempo, tornar cada run limitada e retomável. **Alternativas descartadas:** uma task mapeada por partição (milhares de tasks no scheduler) e execução sem teto (runs longas e difícil diagnóstico). O teto é intencionalmente baixo por padrão; ampliá-lo exige medir disco, memória e comportamento da API. A retomada continua baseada na existência de Parquet válido, não em estado persistido.
 
+### Escrita incremental de partições
+
+**Contexto:** o run piloto em lote foi encerrado com código `-9` durante uma partição anual extensa; não houve evidência conclusiva de OOM no kernel, mas o cliente acumulava todas as páginas em uma lista antes de gravar. **Decisão:** converter e gravar cada página em um Parquet temporário com `ParquetWriter`, registrando progresso por página, e substituir o destino atomicamente apenas após a conclusão. Diferenças de schema entre páginas falham a partição sem publicar arquivo parcial. **Motivo:** limitar memória ao tamanho de uma página e tornar partições grandes observáveis. **Alternativa descartada:** continuar acumulando todas as linhas e aumentar RAM/workers sem evidência. Marcadores vazios históricos mantêm sua semântica; arquivo publicado válido continua protegido.
+
 ### DAGs por finalidade
 
 Não executar o histórico completo como parte da recorrência. O desenho separa:

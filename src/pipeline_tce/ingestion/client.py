@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 import pandas as pd
+import pyarrow as pa
 import pyarrow.parquet as parquet
 import requests
 
@@ -276,30 +277,104 @@ def extract_partition(
     pacer = pacer or RequestPacer(policy.min_interval_seconds)
     own_session = session is None
     session = session or requests.Session()
-    all_rows: list[dict[str, Any]] = []
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    temporary_name: str | None = None
+    writer: parquet.ParquetWriter | None = None
+    schema: pa.Schema | None = None
+    rows_written = 0
+    page_number = 0
+    latest_offset = 0
     try:
         params = dict(partition.params)
         page_size = int(params["$count"])
         offset = int(params["$start_index"])
+        with tempfile.NamedTemporaryFile(
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+            dir=destination.parent,
+            delete=False,
+        ) as temporary:
+            temporary_name = temporary.name
+
         while True:
             params["$start_index"] = offset
             rows = _fetch_page(session, partition, params, policy, pacer)
-            all_rows.extend(rows)
+            page_number += 1
+            latest_offset = offset
+            page_frame = pd.DataFrame(rows)
+            if not page_frame.empty and "exercicio_orcamento" in page_frame.columns:
+                expected_year = str(partition.year)
+                years = page_frame["exercicio_orcamento"].astype(str).str[:4]
+                page_frame = page_frame.loc[years == expected_year].copy()
+
+            if not page_frame.empty:
+                page_frame["municipio_referencia"] = partition.municipality.name
+                table = pa.Table.from_pandas(page_frame, preserve_index=False)
+                if schema is None:
+                    schema = table.schema
+                    writer = parquet.ParquetWriter(
+                        temporary_name,
+                        schema,
+                        compression="snappy",
+                    )
+                else:
+                    extra_columns = set(table.column_names) - set(schema.names)
+                    if extra_columns:
+                        raise TceApiError(
+                            "Schema mudou entre páginas para "
+                            f"{partition.filename}: {sorted(extra_columns)}"
+                        )
+                    arrays = []
+                    for field in schema:
+                        if field.name not in table.column_names:
+                            arrays.append(pa.nulls(table.num_rows, type=field.type))
+                            continue
+                        column = table[field.name]
+                        if column.type != field.type:
+                            try:
+                                column = column.cast(field.type, safe=True)
+                            except (pa.ArrowInvalid, pa.ArrowNotImplementedError) as exc:
+                                raise TceApiError(
+                                    "Tipo de coluna mudou entre páginas para "
+                                    f"{partition.filename}: {field.name}"
+                                ) from exc
+                        arrays.append(column)
+                    table = pa.Table.from_arrays(arrays, schema=schema)
+
+                assert writer is not None
+                writer.write_table(table)
+                rows_written += table.num_rows
+                log.info(
+                    "Página processada; endpoint=%s arquivo=%s página=%s offset=%s "
+                    "registros_página=%s registros_acumulados=%s",
+                    partition.endpoint.prefix,
+                    partition.filename,
+                    page_number,
+                    offset,
+                    table.num_rows,
+                    rows_written,
+                )
+
             if len(rows) < page_size:
                 break
             offset += page_size
+    except Exception:
+        if writer is not None:
+            writer.close()
+            writer = None
+        if temporary_name and os.path.exists(temporary_name):
+            os.unlink(temporary_name)
+        raise
     finally:
+        if writer is not None:
+            writer.close()
         if own_session:
             session.close()
 
-    frame = pd.DataFrame(all_rows)
-    if not frame.empty and "exercicio_orcamento" in frame.columns:
-        expected_year = str(partition.year)
-        years = frame["exercicio_orcamento"].astype(str).str[:4]
-        frame = frame.loc[years == expected_year].copy()
-
     current_year = (today or date.today()).year
-    if frame.empty:
+    if rows_written == 0:
+        if temporary_name and os.path.exists(temporary_name):
+            os.unlink(temporary_name)
         if partition.year < current_year:
             # Semântica herdada: zero colunas é cache negativo intencional.
             _write_parquet_atomic(pd.DataFrame(), destination)
@@ -308,9 +383,9 @@ def extract_partition(
             status = "no_data_uncached"
         result = {"status": status, "file": destination.name, "rows": 0}
     else:
-        frame["municipio_referencia"] = partition.municipality.name
-        _write_parquet_atomic(frame, destination)
-        result = {"status": "downloaded", "file": destination.name, "rows": len(frame)}
+        assert temporary_name is not None
+        os.replace(temporary_name, destination)
+        result = {"status": "downloaded", "file": destination.name, "rows": rows_written}
 
     log.info(
         "Partição concluída; endpoint=%s arquivo=%s status=%s linhas=%s",
