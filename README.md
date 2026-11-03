@@ -56,6 +56,18 @@ O volume `airflow_pilot_data` tem limite preventivo de ocupação em disco confi
 
 Essa DAG é um **piloto de extração**, não é validação contratual/qualidade e não publica dados. Não use para cargas amplas. Para inspeção do artefato do piloto, veja `/opt/airflow/pilot-data` dentro do scheduler; não copie esse volume como datalake de produção.
 
+### Pipeline com estado e manifesto
+
+A DAG manual `tce_pipeline_particao` exercita a fundação da Fase 1: registra a partição como `pending`, marca `running`, grava o Parquet em `airflow_pipeline_data` (layout `bronze/<endpoint>/<ano>/`), gera `*.manifest.json` com sha256/linhas/colunas e marca `extracted` ou `no_data`. Uma segunda task confere que estado, manifesto e arquivo concordam. Ela **não publica** e não altera o piloto.
+
+Requisitos:
+
+- `TCE_STATE_DB_PASSWORD` no `.env` (sem valor padrão);
+- `airflow-init` provisiona papel `pipeline_state`, banco `pipeline_state` e schema de forma idempotente;
+- se a senha estiver ausente, o init apenas avisa e a DAG falha com mensagem clara ao tentar executar.
+
+O volume `airflow_pipeline_data` é separado de `airflow_pilot_data`. O estado fica em um banco próprio no mesmo Postgres, sem acesso ao banco de metadados do Airflow.
+
 Os catálogos versionados em `catalog/` são cópias controladas de `endpoints.json` e `municipios.json` do projeto de origem, sem import em runtime. Consulte [`docs/catalog-provenance.md`](docs/catalog-provenance.md).
 
 Para executar os testes automatizados no container de teste (inclui imports das DAGs e testes HTTP mockados, sem chamadas à API):

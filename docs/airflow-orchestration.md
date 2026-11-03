@@ -12,6 +12,8 @@
 - O extrator mede ocupação do filesystem de saída antes de chamadas e gravações. `TCE_PILOT_MAX_DISK_USAGE=0.90` interrompe no limite sem retry do Airflow; falha a task e preserva arquivos finais concluídos.
 - O cliente pagina de 1.000 em 1.000, espaça requests por 1,5 s, mantém uma chamada ativa por pool, respeita retry/backoff para HTTP 400/429 e falhas transitórias, e não registra corpo da resposta/query string.
 - A extração piloto grava apenas no volume Docker `airflow_pilot_data`, usa escrita atômica, preserva Parquet válido e reconhece marcador zero-colunas. Não valida schema/qualidade e não publica.
+- `tce_pipeline_particao` exercita a Fase 1 do roadmap: estado `pending/running/extracted/no_data/failed` em banco Postgres dedicado, Parquet + manifesto sha256 em `airflow_pipeline_data` e task de conferência que compara estado, manifesto e arquivo. Não publica e não substitui o piloto.
+- O banco de estado é provisionado de forma idempotente pelo `airflow-init` (`pipeline_tce.state.bootstrap`) quando `TCE_STATE_DB_PASSWORD` está definido; sem a senha, o init avisa e a DAG falha ao executar, sem afetar as demais.
 - Imagem Airflow própria instala pandas/PyArrow/requests contra o constraints file da versão configurada; imagem de teste separada adiciona pytest. Testes mockados não chamam a API.
 
 Essa configuração só valida um piloto controlado; não é o limite de produção aprovado. Slots, intervalos, timeouts e backoffs devem ser calibrados com observação controlada e recursos medidos antes de aumentar volume.

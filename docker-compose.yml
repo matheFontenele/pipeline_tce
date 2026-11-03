@@ -49,6 +49,16 @@ services:
       TCE_CATALOG_DIR: ${TCE_CATALOG_DIR:-/opt/airflow/catalog}
       TCE_PILOT_DATA_DIR: ${TCE_PILOT_DATA_DIR:-/opt/airflow/pilot-data}
       TCE_PILOT_MAX_DISK_USAGE: ${TCE_PILOT_MAX_DISK_USAGE:-0.90}
+      TCE_PIPELINE_DATA_DIR: ${TCE_PIPELINE_DATA_DIR:-/opt/airflow/pipeline-data}
+      TCE_STATE_DB_HOST: ${TCE_STATE_DB_HOST:-airflow-postgres}
+      TCE_STATE_DB_PORT: ${TCE_STATE_DB_PORT:-5432}
+      TCE_STATE_DB_NAME: ${TCE_STATE_DB_NAME:-pipeline_state}
+      TCE_STATE_DB_USER: ${TCE_STATE_DB_USER:-pipeline_state}
+      TCE_STATE_DB_PASSWORD: ${TCE_STATE_DB_PASSWORD:-}
+      TCE_STATE_DSN: ${TCE_STATE_DSN:-}
+      TCE_STATE_ADMIN_DB: ${TCE_STATE_ADMIN_DB:-postgres}
+      TCE_STATE_ADMIN_USER: ${AIRFLOW_DB_USER:?Defina AIRFLOW_DB_USER no .env}
+      TCE_STATE_ADMIN_PASSWORD: ${AIRFLOW_DB_PASSWORD:?Defina AIRFLOW_DB_PASSWORD no .env}
       TCE_API_MIN_INTERVAL_SECONDS: ${TCE_API_MIN_INTERVAL_SECONDS:-1.5}
       TCE_HTTP_TIMEOUT: ${TCE_HTTP_TIMEOUT:-90}
       TCE_HTTP_MAX_ATTEMPTS: ${TCE_HTTP_MAX_ATTEMPTS:-5}
@@ -109,6 +119,7 @@ services:
       - ./catalog:/opt/airflow/catalog:ro
       - airflow_logs:/opt/airflow/logs
       - airflow_pilot_data:/opt/airflow/pilot-data
+      - airflow_pipeline_data:/opt/airflow/pipeline-data
     healthcheck:
       test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname $${HOSTNAME}"]
       interval: 30s
@@ -150,3 +161,4 @@ volumes:
   airflow_metadata:
   airflow_logs:
   airflow_pilot_data:
+  airflow_pipeline_data:

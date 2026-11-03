@@ -189,7 +189,7 @@ def test_pendentes_respeitam_limite_e_ordem(repository):
 
 @requires_postgres
 def test_dsn_ausente_falha_cedo():
-    with pytest.raises(StateStoreError, match="TCE_STATE_DSN"):
+    with pytest.raises(StateStoreError, match="TCE_STATE_"):
         PartitionRepository.from_env({})
 
 

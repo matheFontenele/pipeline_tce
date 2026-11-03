@@ -1,9 +1,9 @@
 # Roadmap — de extrator para pipeline de dados
 
-**Status:** proposta em execução incremental. A Fase 1 (fundação de estado e
-armazenamento) está implementada como biblioteca testada, **ainda não ligada às
-DAGs**. Nenhuma publicação de produção está autorizada; o piloto continua
-gravando apenas no volume isolado `airflow_pilot_data`.
+**Status:** proposta em execução incremental. A Fase 1 (estado, armazenamento e
+manifesto) está implementada e ligada à DAG de validação `tce_pipeline_particao`.
+Nenhuma publicação de produção está autorizada; o piloto continua gravando
+apenas no volume isolado `airflow_pilot_data`.
 
 Este documento complementa `docs/architecture-plan.md` (arquitetura provisória,
 gates de infraestrutura e cutover) e `docs/airflow-orchestration.md`
@@ -106,12 +106,24 @@ pools seriais para a API, transformação em DuckDB e publicação por manifesto
 descartadas:** uma task mapeada por partição (incha o scheduler); Spark
 (recursos e complexidade desproporcionais); Kafka (a fonte é batch, sem CDC).
 
+### D6 — Banco de estado dedicado no Postgres existente
+
+**Contexto:** o estado precisa de transações e chaves únicas; o volume Docker não
+serve e um novo container consumiria memória escassa (swap já pressionada).
+**Decisão:** criar papel e banco `pipeline_state` dedicados na instância Postgres
+que já roda, com provisionamento idempotente no `airflow-init` e senha própria
+fora do repositório. **Motivo:** isolamento lógico sem custo de mais um processo;
+o estado não compartilha tabelas nem credenciais com o metadado do Airflow.
+**Alternativas descartadas:** novo container Postgres (mais memória); usar o
+banco de metadados do Airflow (mistura ciclo de vida); pg_duckdb já nesta fase
+(antecipa risco da camada de consulta).
+
 ## Fases e critérios de aceite
 
 | Fase | Entrega | Critério de aceite | Status |
 |---|---|---|---|
-| 1 | Estado, `StorageBackend`, manifesto | Partição rastreável e republicável sem apagar versão válida | Implementado como biblioteca; integração pendente |
-| 2 | Storage compartilhado (MinIO) e publicação atômica | Rollback por manifesto testado em backend S3 | Pendente |
+| 1 | Estado, `StorageBackend`, manifesto | Partição rastreável e republicável sem apagar versão válida | Implementado |
+| 2 | Ligação ponta a ponta e storage compartilhado (MinIO) | Falha/retomada sem sobrescrever versão válida em backend S3 | DAG de validação pronta; backend S3 pendente |
 | 3 | Contratos versionados e qualidade bloqueante | Schema inválido não publica | Pendente |
 | 4 | Descoberta, incremental e reparo | Descoberta só enfileira o que falta | Pendente |
 | 5 | dbt silver/gold e compactação | Dataset consultável e documentado | Pendente |
@@ -135,7 +147,6 @@ aumentam custo operacional no hardware disponível.
 
 ## Próximo passo
 
-Ligar a Fase 1 ao caminho de extração em uma DAG nova e isolada: registrar
-`pending`, marcar `running`, gravar Parquet + manifesto no `StorageBackend`,
-marcar `extracted` e testar falha/retomada. O piloto atual permanece intocado
-até esse fluxo passar nos testes de repetição e interrupção.
+A DAG `tce_pipeline_particao` valida a Fase 1 de ponta a ponta. O próximo passo
+é exercitá-la no servidor com uma partição controlada e, em seguida, criar o
+adaptador S3/MinIO para a Fase 2, mantendo o piloto atual intocado.

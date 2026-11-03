@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 import logging
-import os
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator, Mapping
 
+from pipeline_tce.state.config import state_dsn_from_env
+from pipeline_tce.state.errors import StateStoreError, UnknownPartitionError
 from pipeline_tce.state.models import (
     InvalidTransitionError,
     PartitionKey,
@@ -20,7 +21,6 @@ from pipeline_tce.state.models import (
 log = logging.getLogger(__name__)
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
-STATE_DSN_VARIABLE = "TCE_STATE_DSN"
 MAX_ERROR_LENGTH = 1000
 
 _COLUMNS = (
@@ -48,14 +48,6 @@ _ASSIGNABLE = frozenset(
         "published_at",
     }
 )
-
-
-class StateStoreError(RuntimeError):
-    """Falha ao acessar o banco de estado; não inclui DSN nem credenciais."""
-
-
-class UnknownPartitionError(StateStoreError):
-    """A partição ainda não foi registrada na tabela de estado."""
 
 
 def _key_params(key: PartitionKey) -> dict[str, Any]:
@@ -105,13 +97,7 @@ class PartitionRepository:
 
     @classmethod
     def from_env(cls, environ: Mapping[str, str] | None = None) -> "PartitionRepository":
-        values = os.environ if environ is None else environ
-        dsn = values.get(STATE_DSN_VARIABLE, "").strip()
-        if not dsn:
-            raise StateStoreError(
-                f"{STATE_DSN_VARIABLE} não configurado; o estado de ingestão exige banco Postgres"
-            )
-        return cls(dsn)
+        return cls(state_dsn_from_env(environ))
 
     @contextmanager
     def _connect(self) -> Iterator[Any]:

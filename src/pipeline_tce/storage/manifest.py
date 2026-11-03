@@ -76,7 +76,11 @@ def build_manifest(
 
 
 def write_manifest(
-    storage: StorageBackend, *, key: PartitionKey, manifest: Mapping[str, Any]
+    storage: StorageBackend,
+    *,
+    key: PartitionKey,
+    manifest: Mapping[str, Any],
+    parquet_key: str | None = None,
 ) -> str:
     """Grava o manifesto por último, de forma atômica no backend."""
     partition = manifest.get("partition")
@@ -85,4 +89,4 @@ def write_manifest(
     payload = json.dumps(
         dict(manifest), ensure_ascii=False, indent=2, sort_keys=True
     ).encode("utf-8") + b"\n"
-    return storage.put_bytes_atomic(payload, manifest_key(key.filename))
+    return storage.put_bytes_atomic(payload, manifest_key(parquet_key or key.filename))

@@ -21,3 +21,10 @@ fi
 
 airflow pools set tce_api_pool "${TCE_API_POOL_SLOTS:-1}" \
   "Concurrency limit for TCE public API requests"
+
+if [[ -n "${TCE_STATE_DB_PASSWORD:-}" ]]; then
+  python -m pipeline_tce.state.bootstrap
+else
+  echo "AVISO: TCE_STATE_DB_PASSWORD ausente; banco de estado não provisionado." >&2
+  echo "Defina a senha no .env e reinicie airflow-init para habilitar a DAG tce_pipeline_particao." >&2
+fi

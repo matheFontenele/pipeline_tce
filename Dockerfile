@@ -5,7 +5,7 @@ ARG AIRFLOW_VERSION=2.10.4
 ARG PYTHON_VERSION=3.10
 
 USER airflow
-RUN mkdir -p /opt/airflow/pilot-data
+RUN mkdir -p /opt/airflow/pilot-data /opt/airflow/pipeline-data
 COPY requirements-airflow.txt /tmp/requirements-airflow.txt
 RUN pip install --no-cache-dir \
     --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt" \

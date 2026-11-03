@@ -19,12 +19,14 @@ chmod 600 "$ENV_FILE"
 
 admin_password="$(openssl rand -hex 32)"
 db_password="$(openssl rand -hex 32)"
+state_password="$(openssl rand -hex 32)"
 fernet_key="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '\n')"
 webserver_secret="$(openssl rand -hex 32)"
 
 sed -i \
   -e "s|^AIRFLOW_ADMIN_PASSWORD=.*|AIRFLOW_ADMIN_PASSWORD=$admin_password|" \
   -e "s|^AIRFLOW_DB_PASSWORD=.*|AIRFLOW_DB_PASSWORD=$db_password|" \
+  -e "s|^TCE_STATE_DB_PASSWORD=.*|TCE_STATE_DB_PASSWORD=$state_password|" \
   -e "s|^AIRFLOW_FERNET_KEY=.*|AIRFLOW_FERNET_KEY=$fernet_key|" \
   -e "s|^AIRFLOW_WEBSERVER_SECRET_KEY=.*|AIRFLOW_WEBSERVER_SECRET_KEY=$webserver_secret|" \
   "$ENV_FILE"
