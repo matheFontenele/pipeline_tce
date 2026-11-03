@@ -52,6 +52,11 @@ API aberta TCE-CE
 
 O desenho detalhado deverá separar carga recorrente, backfill parametrizado, reparação de partições e publicação/refresh. A recorrência deve descobrir apenas partições pendentes, inválidas ou explicitamente solicitadas. Evitar milhares de tasks mapeadas sem medir impacto; avaliar lotes/tabela de trabalho e pools. Não definir scheduler, executor ou número de workers sem os recursos reais.
 
+O caminho de evolução para pipeline completo (estado de ingestão, storage
+compartilhado, contratos, transformação e consulta) está em
+`docs/data-pipeline-roadmap.md`. A Fase 1 desse roadmap é uma biblioteca de
+estado e armazenamento testada, ainda não ligada às DAGs.
+
 O estado de ingestão deverá permitir rastrear dataset, endpoint, ano, mês, município, status, tentativas, horários, quantidade de linhas, referência do arquivo, versão do schema e erro. Relatórios de qualidade persistidos distinguirão bloqueios de publicação de avisos e diferenciarão falha de API, erro de dados e ausência legítima de registros.
 
 ## Reuso do extrator e contratos

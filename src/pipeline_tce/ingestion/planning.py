@@ -10,6 +10,21 @@ from collections.abc import Iterator
 from pipeline_tce.ingestion.catalog import Endpoint, Municipality
 
 
+def partition_filename(
+    endpoint_prefix: str, year: int, month: int | None, municipality_code: str
+) -> str:
+    """Fonte única do nome do Parquet de uma partição.
+
+    Endpoints anuais não têm mês. O estado de ingestão reaproveita esta regra
+    para não manter duas convenções de nome em paralelo.
+    """
+    if month is None:
+        suffix = f"{year}_{municipality_code}"
+    else:
+        suffix = f"{year}_{month:02d}_{municipality_code}"
+    return f"{endpoint_prefix}_{suffix}.parquet"
+
+
 @dataclass(frozen=True)
 class Partition:
     endpoint: Endpoint
@@ -20,11 +35,9 @@ class Partition:
 
     @property
     def filename(self) -> str:
-        if self.month is None:
-            suffix = f"{self.year}_{self.municipality.code}"
-        else:
-            suffix = f"{self.year}_{self.month:02d}_{self.municipality.code}"
-        return f"{self.endpoint.prefix}_{suffix}.parquet"
+        return partition_filename(
+            self.endpoint.prefix, self.year, self.month, self.municipality.code
+        )
 
 
 def build_partition(

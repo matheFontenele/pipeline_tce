@@ -132,8 +132,13 @@ services:
     profiles: ["test"]
     entrypoint: ["python", "-m", "pytest"]
     command: ["/opt/airflow/tests", "-q"]
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
     environment:
       PYTHONPATH: /opt/airflow/pipeline-src
+      # Banco descartável criado pelos testes de integração do estado.
+      TCE_STATE_TEST_DSN: ${TCE_STATE_TEST_DSN:-postgresql://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@airflow-postgres:5432/postgres}
     volumes:
       - ./tests:/opt/airflow/tests:ro
       - ./catalog:/opt/airflow/catalog:ro
