@@ -19,7 +19,6 @@ from pipeline_tce.state.models import PartitionKey, PartitionStatus
 from pipeline_tce.storage.base import StorageBackend
 from pipeline_tce.storage.manifest import (
     build_manifest,
-    file_sha256,
     manifest_key,
     write_manifest,
 )
@@ -173,7 +172,11 @@ def run_partition(
 def verify_partition(
     key: PartitionKey, *, repository: Any, storage: StorageBackend
 ) -> dict[str, Any]:
-    """Confere que estado, manifesto e arquivo armazenado concordam."""
+    """Confere que estado, manifesto e arquivo armazenado concordam.
+
+    A leitura usa apenas o contrato ``StorageBackend`` (``read_bytes`` e
+    ``sha256``), sem caminho físico local, para valer também em S3/MinIO.
+    """
     snapshot = repository.get(key)
     if snapshot is None:
         raise PipelineError("Partição não registrada no estado")
@@ -193,7 +196,7 @@ def verify_partition(
         manifest = json.loads(storage.read_bytes(manifest_key(key_name)))
     except ValueError as exc:
         raise PipelineError("Manifesto ilegível para a partição") from exc
-    actual = file_sha256(Path(storage.uri(key_name)))
+    actual = storage.sha256(key_name)
     if actual != manifest.get("content_sha256"):
         raise PipelineError("Arquivo armazenado diverge do manifesto")
     if actual != snapshot.content_sha256:

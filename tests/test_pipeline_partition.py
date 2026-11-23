@@ -216,6 +216,33 @@ def test_conferencia_detecta_arquivo_adulterado(repository, storage, tmp_path):
         verify_partition(KEY, repository=repository, storage=storage)
 
 
+def test_conferencia_nao_depende_de_caminho_local(repository, storage, tmp_path):
+    class BackendRemoto:
+        """Expõe só o contrato de storage; simula S3/MinIO sem caminho físico."""
+
+        def read_bytes(self, key):
+            return storage.read_bytes(key)
+
+        def sha256(self, key):
+            return storage.sha256(key)
+
+        def uri(self, key):  # pragma: no cover - não deve ser chamado
+            raise AssertionError("conferência não deve resolver caminho local")
+
+    _run(repository, storage, tmp_path, _extract(1))
+    sha = json.loads(storage.read_bytes(manifest_key(storage_key(KEY))))[
+        "content_sha256"
+    ]
+    repository.get.return_value = _snapshot(
+        PartitionStatus.EXTRACTED, row_count=1, content_sha256=sha
+    )
+
+    verification = verify_partition(
+        KEY, repository=repository, storage=BackendRemoto()
+    )
+    assert verification["sha256"] == sha
+
+
 def test_conferencia_de_ausencia_historica(repository, storage):
     repository.get.return_value = _snapshot(PartitionStatus.NO_DATA, row_count=0)
 

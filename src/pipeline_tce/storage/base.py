@@ -34,5 +34,13 @@ class StorageBackend(Protocol):
     def read_bytes(self, key: str) -> bytes:
         ...
 
+    def sha256(self, key: str) -> str:
+        """SHA-256 hexadecimal do objeto, lido em streaming.
+
+        Evita carregar o Parquet inteiro em memória e não expõe o caminho
+        físico, permitindo conferência igual em filesystem e S3/MinIO.
+        """
+        ...
+
     def remove(self, key: str) -> None:
         ...

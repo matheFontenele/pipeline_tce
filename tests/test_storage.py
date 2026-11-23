@@ -1,3 +1,4 @@
+import hashlib
 import json
 
 import pandas as pd
@@ -59,6 +60,16 @@ def test_lista_existe_e_remove(storage):
     storage.remove("bronze/a/1.parquet")
     storage.remove("bronze/a/1.parquet")
     assert storage.list_keys("bronze") == ["bronze/b/2.parquet"]
+
+
+def test_sha256_confere_conteudo_em_streaming(storage):
+    data = b"conteudo" * 1000
+    storage.put_bytes_atomic(data, "bronze/a.bin")
+
+    assert storage.sha256("bronze/a.bin") == hashlib.sha256(data).hexdigest()
+
+    with pytest.raises(StorageError, match="Chave inexistente"):
+        storage.sha256("bronze/ausente.bin")
 
 
 def test_manifesto_descreve_parquet_com_dados(tmp_path, storage):

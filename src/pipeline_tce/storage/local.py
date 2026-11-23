@@ -7,6 +7,7 @@ atomicidade passa a ser garantida por manifesto, não por rename.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import shutil
 import tempfile
@@ -82,6 +83,17 @@ class LocalStorage:
             return path.read_bytes()
         except FileNotFoundError as exc:
             raise StorageError(f"Chave inexistente: {key}") from exc
+
+    def sha256(self, key: str) -> str:
+        path = self._resolve(key)
+        digest = hashlib.sha256()
+        try:
+            with path.open("rb") as handle:
+                for chunk in iter(lambda: handle.read(1 << 20), b""):
+                    digest.update(chunk)
+        except FileNotFoundError as exc:
+            raise StorageError(f"Chave inexistente: {key}") from exc
+        return digest.hexdigest()
 
     def remove(self, key: str) -> None:
         self._resolve(key).unlink(missing_ok=True)

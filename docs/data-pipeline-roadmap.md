@@ -75,10 +75,11 @@ orquestrador).
 **Contexto:** o volume Docker não é compartilhável nem oferece durabilidade de
 produção; `os.replace` não existe em S3/MinIO. **Decisão:** interface
 `StorageBackend` (`put_file_atomic`, `put_bytes_atomic`, `exists`,
-`read_bytes`, `remove`) e manifesto JSON gravado por último com sha256,
-tamanho, contagem, colunas, `run_id` e versões. **Motivo:** o mesmo código
-serve ao piloto local e ao storage compartilhado; o manifesto é o commit
-lógico. **Alternativas descartadas:** exigir filesystem POSIX em produção
+`read_bytes`, `sha256`, `remove`) e manifesto JSON gravado por último com
+sha256, tamanho, contagem, colunas, `run_id` e versões. **Motivo:** o mesmo
+código serve ao piloto local e ao storage compartilhado; o manifesto é o
+commit lógico, e a conferência hasheia pelo próprio backend (sem depender de
+caminho físico). **Alternativas descartadas:** exigir filesystem POSIX em produção
 (limita backend); considerar a escrita do objeto como commit (não atômica em
 S3).
 
