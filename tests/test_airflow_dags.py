@@ -42,5 +42,13 @@ def test_airflow_dags_carregam_sem_erro_de_importacao():
     assert diaria.schedule_interval == "30 2 * * *"
     assert diaria.max_active_runs == 1
     assert diaria.get_task("atualizar_janela").pool == "tce_api_pool"
-    assert diaria.params["months_back"].value == 2
-    assert diaria.params["max_partitions"].value == 0
+    diaria_params = {
+        name: getattr(param, "value", param)
+        for name, param in diaria.params.items()
+    }
+    assert diaria_params == {
+        "months_back": 2,
+        "max_workers": 2,
+        "endpoint_prefixes": "",
+        "max_partitions": 0,
+    }

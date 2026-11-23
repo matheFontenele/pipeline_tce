@@ -77,7 +77,7 @@ def test_janela_gera_mensais_e_anuais_sem_duplicar():
     mensais = [p for p in partitions if p.endpoint.prefix == "notas_empenho"]
     anuais = [p for p in partitions if p.endpoint.prefix == "itens_notas_fiscais"]
 
-    assert len(mensais) == 2 * 2 * 2  # meses × municípios
+    assert len(mensais) == 2 * 2  # meses × municípios
     assert {(p.year, p.month) for p in mensais} == {(2025, 12), (2026, 1)}
     # Um registro anual por município e por ano da janela, nunca por mês.
     assert len(anuais) == 2 * 2
@@ -146,7 +146,7 @@ def _window_partitions(total):
                 partitions.append(
                     build_partition(MENSAL, year, month, MUNICIPALITIES[code])
                 )
-    assert len(set(partitions)) == len(partitions)
+    assert len({particao.filename for particao in partitions}) == len(partitions)
     return partitions[:total]
 
 
