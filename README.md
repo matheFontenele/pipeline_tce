@@ -139,6 +139,10 @@ docker compose run --rm -T --entrypoint python \
 - Ausência de linhas vira `no_data` (marcador Parquet de zero colunas preservado, nunca apagado) e o manifesto recebe `origin.extractor = "legado"` com arquivo e mtime de origem.
 - `--limit` usa `islice`: limitar não varre a origem inteira.
 
+Execução de 2026-11-23, como referência de escala: 828.275 Parquets e 13,59 GB adotados em 1.706 s (~485 arquivos/s), `failed=0` e `--verify 300` sem divergências. A segunda passada, já com o extrator antigo parado, copiou 16 arquivos novos e reaproveitou 828.275, em 572 s. O que não tem dado na origem vira `no_data` (411.703 partições, marcador de zero colunas preservado); o restante fica `extracted`.
+
+Partições `failed` na janela são, na prática, meses que a API ainda não publicou: continuam `failed` só para serem retentadas na execução seguinte. Por isso `failed` no estado não indica corrupção — confira `last_error` antes de suspeitar de falha real.
+
 
 Requisitos:
 
