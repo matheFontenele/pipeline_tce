@@ -128,20 +128,24 @@ find /home/controle-interno/pipeline_tce/lakehouse/bronze -name '*.manifest.json
 Se o app precisar de carga incremental, guarde o `content_sha256` já
 processado por partição e reprocesse apenas quando ele mudar.
 
-## 6. Cobertura atual (piloto)
+## 6. Cobertura atual
 
-- Endpoint: `notas_empenho`
-- Ano: `2024`
-- Município: `057` (Fortaleza)
-- Meses disponíveis: `01` e `02`
-- Estado do pipeline: `extracted` (bronze conferido), **sem** validação
-  contratual/qualidade e **sem** publicação formal.
-- Volume: ~1,4 MB, 2 partições.
+- Histórico completo de 2008 a 2025, 2026/01–09 completo, 2026/10 em
+  preenchimento, 2026/11 sem publicação na API e 2026/12 inexistente.
+- Volume: 828 mil Parquets / ~13,6 GB, no layout
+  `bronze/<endpoint>/<ano>/<arquivo>.parquet`.
+- Estado do pipeline: `extracted` (bronze conferido contra o manifesto),
+  **sem** validação contratual/qualidade e **sem** publicação formal.
+- Atualização: DAG `tce_atualizacao_diaria` reextrai mês corrente + anterior
+  todos os dias às 02:30 `America/Fortaleza`; fora dessa janela o histórico é
+  imutável.
 
-Consumo liberado para desenvolvimento e testes. O gate de publicação da Fase 2
-(contrato versionado + checks de qualidade) ainda não foi implementado; quando
-entrar, `contract_version` deixará de ser `null` e haverá uma pasta publicada
-separada.
+Consumo liberado para desenvolvimento e operação interna. O gate de publicação
+da Fase 2 (contrato versionado + checks de qualidade) ainda não foi
+implementado; quando entrar, `contract_version` deixará de ser `null` e haverá
+uma pasta publicada separada. A árvore do extrator antigo
+(`~/automacao_api_tse/data`) não é mais fonte de dados — ver
+[`handover-extrator-legado.md`](handover-extrator-legado.md).
 
 ## 7. Permissões
 
