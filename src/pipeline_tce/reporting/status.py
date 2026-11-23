@@ -24,6 +24,8 @@ from pipeline_tce.ingestion.catalog import Endpoint, Municipality
 from pipeline_tce.ingestion.planning import build_partition
 from pipeline_tce.state.models import PartitionKey, PartitionSnapshot
 
+ENDPOINT_WIDTH = 45
+
 
 @dataclass
 class EndpointTotals:
@@ -155,14 +157,14 @@ def build_report(
 def format_report(report: StatusReport) -> str:
     """Tabela de texto simples, legível no terminal e nos logs."""
     header = (
-        f"{'endpoint':<28}{'planejadas':>11}{'feitas':>8}{'faltam':>8}"
+        f"{'endpoint':<{ENDPOINT_WIDTH}}{'planejadas':>11}{'feitas':>8}{'faltam':>8}"
         f"{'extraidas':>10}{'no_data':>9}{'falhas':>8}{'rodando':>9}"
         f"{'pendentes':>10}{'sem_registro':>13}"
     )
     lines = [header, "-" * len(header)]
     for prefix, totals in report.totals.items():
         lines.append(
-            f"{prefix:<28}{totals.planned:>11}{totals.done:>8}"
+            f"{prefix[:ENDPOINT_WIDTH]:<{ENDPOINT_WIDTH}}{totals.planned:>11}{totals.done:>8}"
             f"{totals.remaining:>8}{totals.extracted:>10}{totals.no_data:>9}"
             f"{totals.failed:>8}{totals.running:>9}{totals.pending:>10}"
             f"{totals.unregistered:>13}"
@@ -170,7 +172,7 @@ def format_report(report: StatusReport) -> str:
     overall = report.overall
     lines.append("-" * len(header))
     lines.append(
-        f"{'TOTAL':<28}{overall.planned:>11}{overall.done:>8}"
+        f"{'TOTAL':<{ENDPOINT_WIDTH}}{overall.planned:>11}{overall.done:>8}"
         f"{overall.remaining:>8}{overall.extracted:>10}{overall.no_data:>9}"
         f"{overall.failed:>8}{overall.running:>9}{overall.pending:>10}"
         f"{overall.unregistered:>13}"
@@ -193,14 +195,14 @@ def format_report(report: StatusReport) -> str:
 def format_snapshots(snapshots: Sequence[PartitionSnapshot]) -> str:
     """Lista os registros de estado do escopo, um por linha."""
     header = (
-        f"{'endpoint':<28}{'ano':>6}{'mes':>5}{'municipio':>11}"
+        f"{'endpoint':<{ENDPOINT_WIDTH}}{'ano':>6}{'mes':>5}{'municipio':>11}"
         f"{'estado':>12}{'tentativas':>12}{'linhas':>9}  {'atualizado':<19} run"
     )
     lines = [header, "-" * len(header)]
     for snapshot in snapshots:
         key = snapshot.key
         lines.append(
-            f"{key.endpoint_prefix:<28}{key.year:>6}"
+            f"{key.endpoint_prefix[:ENDPOINT_WIDTH]:<{ENDPOINT_WIDTH}}{key.year:>6}"
             f"{(key.month if key.month is not None else '-'):>5}"
             f"{key.municipality_code:>11}{snapshot.status.value:>12}"
             f"{snapshot.attempts:>12}"

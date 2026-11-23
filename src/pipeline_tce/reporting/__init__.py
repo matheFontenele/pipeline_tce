@@ -1,9 +1,5 @@
-"""Relatórios operacionais da plataforma (não publicam nem extraem dados)."""
+"""Relatórios operacionais da plataforma.
 
-from pipeline_tce.reporting.status import (
-    EndpointTotals,
-    build_report,
-    format_report,
-)
-
-__all__ = ["EndpointTotals", "build_report", "format_report"]
+Importar submódulos explicitamente (``pipeline_tce.reporting.status``) evita
+carregar dependências de banco em contextos que só precisam de contagens.
+"""
