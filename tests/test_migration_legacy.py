@@ -108,7 +108,7 @@ def test_scan_filtra_e_relata_rejeicoes(tmp_path):
 
     itens = list(scan(tmp_path, CATALOG, rejects=rejects))
     assert len(itens) == 3
-    assert [item.name for item, _ in rejects] == ["qualquer.txt"]
+    assert [name for name, _ in rejects] == ["qualquer.txt"]
 
     apenas_2024 = list(
         scan(tmp_path, CATALOG, start_year=2024, end_year=2024)
