@@ -30,6 +30,7 @@ from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from itertools import islice
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Sequence
 
@@ -378,8 +379,12 @@ def adopt(
         end_year=end_year,
         rejects=rejects,
     )
-    if limit:
-        items = (item for index, item in enumerate(items) if index < limit)
+    if limit is not None:
+        if limit < 1:
+            raise ValueError("limit deve ser >= 1 quando informado")
+        # islice para de puxar do scan: um filtro por índice varreria a origem
+        # inteira (828 mil entradas) só para adotar as N primeiras.
+        items = islice(items, limit)
 
     started = time.monotonic()
     processed = written = preserved = no_data = failed = 0

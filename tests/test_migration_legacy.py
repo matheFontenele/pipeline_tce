@@ -178,6 +178,46 @@ def test_adotar_copia_manifesto_e_registra_estado(tmp_path):
     assert manifesto["origin"]["extractor"] == "legado"
 
 
+def test_limit_nao_varre_a_origem_inteira(tmp_path, monkeypatch):
+    origem = tmp_path / "origem"
+    origem.mkdir()
+    for month in range(1, 6):
+        _parquet(origem / f"mensal_2024_{month:02d}_057.parquet")
+
+    from pipeline_tce.migration import legacy as modulo
+
+    consumidos: list[str] = []
+    real_scan = modulo.scan
+
+    def espiao(*args, **kwargs):
+        for item in real_scan(*args, **kwargs):
+            consumidos.append(item.source.name)
+            yield item
+
+    monkeypatch.setattr(modulo, "scan", espiao)
+    resumo = adopt(
+        origem,
+        CATALOG,
+        storage=LocalStorage(tmp_path / "lakehouse"),
+        repository=FakeRepository(),
+        run_id="r1",
+        limit=2,
+    )
+
+    assert resumo["processed"] == 2
+    assert len(consumidos) == 2
+
+    with pytest.raises(ValueError, match="limit"):
+        adopt(
+            origem,
+            CATALOG,
+            storage=LocalStorage(tmp_path / "lakehouse"),
+            repository=FakeRepository(),
+            run_id="r2",
+            limit=0,
+        )
+
+
 def test_adocao_e_idempotente(tmp_path):
     origem = tmp_path / "origem"
     origem.mkdir()
