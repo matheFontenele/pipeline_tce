@@ -32,6 +32,15 @@ class PipelineError(RuntimeError):
     """Falha controlada do ciclo da partição, sem dados sensíveis."""
 
 
+class PendingDataError(PipelineError):
+    """Ausência de dados no ano corrente, que não pode ser cacheada.
+
+    Não é falha do pipeline: o estado fica ``failed`` só para ser retomado na
+    próxima execução e a janela de atualização conta como "sem dados", sem
+    abrir o circuit breaker.
+    """
+
+
 @dataclass(frozen=True)
 class PartitionRunResult:
     key: PartitionKey
@@ -60,6 +69,7 @@ def run_partition(
     policy: RetryPolicy | None = None,
     pacer: RequestPacer | None = None,
     max_disk_usage: float | None = None,
+    refresh: bool = False,
 ) -> PartitionRunResult:
     """Executa extração -> storage -> manifesto -> estado para uma partição.
 
@@ -69,6 +79,11 @@ def run_partition(
     falha marca ``failed`` e propaga, sem publicar arquivo parcial. Se o
     estado indicar artefato e o storage tiver divergido, a task de conferência
     falha e o reprocessamento deve ser solicitado.
+
+    ``refresh=True`` é o pedido explícito da janela de atualização recorrente
+    (mês corrente e anteriores): a partição volta a ``pending`` e é reextraída.
+    O Parquet válido só é substituído por ``put_file_atomic`` depois de uma
+    resposta completa, então uma falha no meio mantém a versão anterior.
     """
     if not run_id:
         raise ValueError("run_id é obrigatório")
@@ -80,18 +95,25 @@ def run_partition(
         raise PipelineError("Partição não encontrada no estado após o registro")
 
     if snapshot.artifact_ready or snapshot.settled:
+        if not refresh:
+            log.info(
+                "Partição já possui artefato; reprocessamento não solicitado; arquivo=%s estado=%s",
+                key.filename,
+                snapshot.status.value,
+            )
+            return PartitionRunResult(
+                key=key,
+                status="skipped",
+                rows=snapshot.row_count or 0,
+                storage_uri=snapshot.storage_uri,
+                manifest_uri=None,
+            )
         log.info(
-            "Partição já possui artefato; reprocessamento não solicitado; arquivo=%s estado=%s",
+            "Atualização da janela; reextraindo partição com artefato; arquivo=%s estado=%s",
             key.filename,
             snapshot.status.value,
         )
-        return PartitionRunResult(
-            key=key,
-            status="skipped",
-            rows=snapshot.row_count or 0,
-            storage_uri=snapshot.storage_uri,
-            manifest_uri=None,
-        )
+        repository.request_reprocess(key)
 
     repository.mark_running(key, run_id)
     staging = Path(staging_dir)
@@ -107,7 +129,7 @@ def run_partition(
                 max_disk_usage=max_disk_usage,
             )
             if result.get("status") == "no_data_uncached":
-                raise PipelineError(
+                raise PendingDataError(
                     "Ausência de dados no ano corrente não é cacheada; "
                     "a partição não será publicada"
                 )

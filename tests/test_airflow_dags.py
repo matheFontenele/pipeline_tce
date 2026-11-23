@@ -12,6 +12,7 @@ def test_airflow_dags_carregam_sem_erro_de_importacao():
     assert "tce_planejamento_lote" in dag_bag.dags
     assert "tce_extracao_lote" in dag_bag.dags
     assert "tce_pipeline_particao" in dag_bag.dags
+    assert "tce_atualizacao_diaria" in dag_bag.dags
     assert "platform_smoke_test" not in dag_bag.dags
     pilot = dag_bag.dags["tce_extracao_piloto"]
     assert pilot.schedule_interval is None
@@ -37,3 +38,9 @@ def test_airflow_dags_carregam_sem_erro_de_importacao():
     assert pipeline.get_task("conferir_particao").upstream_task_ids == {
         "executar_particao"
     }
+    diaria = dag_bag.dags["tce_atualizacao_diaria"]
+    assert diaria.schedule_interval == "30 2 * * *"
+    assert diaria.max_active_runs == 1
+    assert diaria.get_task("atualizar_janela").pool == "tce_api_pool"
+    assert diaria.params["months_back"].value == 2
+    assert diaria.params["max_partitions"].value == 0
