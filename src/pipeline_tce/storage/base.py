@@ -28,7 +28,11 @@ class StorageBackend(Protocol):
     def put_file_atomic(self, source: Path, key: str) -> str:
         ...
 
-    def put_bytes_atomic(self, data: bytes, key: str) -> str:
+    def put_bytes_atomic(self, data: bytes, key: str, *, fsync: bool = True) -> str:
+        """Grava bytes com commit atômico.
+
+        ``fsync`` pode ser desligado apenas em migração offline em lote.
+        """
         ...
 
     def read_bytes(self, key: str) -> bytes:

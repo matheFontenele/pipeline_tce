@@ -81,12 +81,19 @@ def write_manifest(
     key: PartitionKey,
     manifest: Mapping[str, Any],
     parquet_key: str | None = None,
+    durable: bool = True,
 ) -> str:
-    """Grava o manifesto por último, de forma atômica no backend."""
+    """Grava o manifesto por último, de forma atômica no backend.
+
+    ``durable=False`` só é usado em migração offline em lote, onde o custo de
+    um fsync por arquivo domina e a conferência posterior cobre a durabilidade.
+    """
     partition = manifest.get("partition")
     if not isinstance(partition, Mapping) or partition.get("filename") != key.filename:
         raise ValueError("Manifesto não corresponde à partição informada")
     payload = json.dumps(
         dict(manifest), ensure_ascii=False, indent=2, sort_keys=True
     ).encode("utf-8") + b"\n"
-    return storage.put_bytes_atomic(payload, manifest_key(parquet_key or key.filename))
+    return storage.put_bytes_atomic(
+        payload, manifest_key(parquet_key or key.filename), fsync=durable
+    )

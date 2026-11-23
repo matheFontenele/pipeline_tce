@@ -224,3 +224,74 @@ def test_dsn_ausente_falha_cedo():
 def test_dsn_vazio_e_rejeitado():
     with pytest.raises(ValueError):
         PartitionRepository("   ")
+
+
+def _adoption_record(key, status="extracted", sha=None, rows=2):
+    return {
+        "endpoint_prefix": key.endpoint_prefix,
+        "year": key.year,
+        "month": key.month,
+        "municipality_code": key.municipality_code,
+        "status": status,
+        "row_count": rows,
+        "content_sha256": sha or "c" * 64,
+        "schema_version": "1",
+        "storage_uri": "/data/bronze/x.parquet",
+        "extracted_at": None,
+    }
+
+
+@requires_postgres
+def test_adopt_many_registra_particao_nova_e_pendente(repository):
+    pendente = repository.ensure(PartitionKey("mensal", 2024, 2, "001"))
+
+    resultado = repository.adopt_many(
+        [
+            _adoption_record(PartitionKey("mensal", 2024, 1, "001")),
+            _adoption_record(pendente.key, rows=0, status="no_data"),
+        ],
+        run_id="import__teste",
+    )
+
+    assert resultado == {"written": 2, "preserved": 0}
+    extraida = repository.get(PartitionKey("mensal", 2024, 1, "001"))
+    assert extraida.status is PartitionStatus.EXTRACTED
+    assert extraida.last_run_id == "import__teste"
+    assert extraida.attempts == 0
+    assert repository.get(pendente.key).status is PartitionStatus.NO_DATA
+
+
+@requires_postgres
+def test_adopt_many_preserva_artefato_existente(repository):
+    repository.ensure(MONTHLY)
+    repository.mark_running(MONTHLY, "run-1")
+    original = repository.mark_extracted(
+        MONTHLY,
+        run_id="run-1",
+        row_count=10,
+        content_sha256=SHA,
+        schema_version="1",
+        storage_uri="/data/bronze/original.parquet",
+    )
+
+    resultado = repository.adopt_many(
+        [_adoption_record(MONTHLY, sha="d" * 64, rows=99)],
+        run_id="import__teste",
+    )
+
+    assert resultado == {"written": 0, "preserved": 1}
+    atual = repository.get(MONTHLY)
+    assert atual.content_sha256 == original.content_sha256
+    assert atual.row_count == 10
+    assert atual.last_run_id == "run-1"
+
+
+@requires_postgres
+def test_adopt_many_recusa_status_invalido(repository):
+    record = _adoption_record(MONTHLY, status="published")
+
+    with pytest.raises(ValueError, match="não adotável"):
+        repository.adopt_many([record], run_id="import__teste")
+
+    assert repository.get(MONTHLY) is None
+

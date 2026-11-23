@@ -6,7 +6,7 @@ import logging
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterator, Mapping
+from typing import Any, Iterator, Mapping, Sequence
 
 from pipeline_tce.state.config import state_dsn_from_env
 from pipeline_tce.state.errors import StateStoreError, UnknownPartitionError
@@ -155,6 +155,82 @@ class PartitionRepository:
                 )
                 rows = cursor.fetchall()
         return [_snapshot(row) for row in rows]
+
+    def adopt_many(
+        self,
+        records: Sequence[Mapping[str, Any]],
+        *,
+        run_id: str,
+    ) -> dict[str, int]:
+        """Registra em lote artefatos já extraídos por outro extrator.
+
+        Uso restrito à migração de histórico: só ocupa partições inexistentes,
+        ``pending`` ou ``failed``. Qualquer estado com artefato
+        (``extracted``/``validated``/``published``/``no_data``) e ``running``
+        é preservado para não substituir versão boa nem interromper execução.
+        """
+        if not run_id:
+            raise ValueError("run_id é obrigatório")
+        if not records:
+            return {"written": 0, "preserved": 0}
+
+        from psycopg2.extras import execute_values
+
+        values = [
+            (
+                record["endpoint_prefix"],
+                int(record["year"]),
+                int(record["month"] or 0),
+                record["municipality_code"],
+                record["status"],
+                int(record.get("attempts") or 0),
+                int(record["row_count"]),
+                record["content_sha256"],
+                record["schema_version"],
+                record["storage_uri"],
+                run_id,
+                record.get("extracted_at"),
+            )
+            for record in records
+        ]
+        for value in values:
+            status = value[4]
+            if status not in (
+                PartitionStatus.EXTRACTED.value,
+                PartitionStatus.NO_DATA.value,
+            ):
+                raise ValueError(f"Status não adotável: {status}")
+            if len(value[7]) != 64:
+                raise ValueError("content_sha256 deve ter 64 caracteres")
+            if value[6] < 0:
+                raise ValueError("row_count não pode ser negativo")
+
+        query = """
+            INSERT INTO ingestion_partitions (
+                endpoint_prefix, year, month, municipality_code, status,
+                attempts, row_count, content_sha256, schema_version,
+                storage_uri, last_run_id, extracted_at
+            ) VALUES %s
+            ON CONFLICT (endpoint_prefix, year, municipality_code, month)
+            DO UPDATE SET
+                status = EXCLUDED.status,
+                row_count = EXCLUDED.row_count,
+                content_sha256 = EXCLUDED.content_sha256,
+                schema_version = EXCLUDED.schema_version,
+                storage_uri = EXCLUDED.storage_uri,
+                last_run_id = EXCLUDED.last_run_id,
+                extracted_at = EXCLUDED.extracted_at,
+                last_error = NULL,
+                updated_at = now()
+            WHERE ingestion_partitions.status IN ('pending', 'failed')
+        """
+        with self._connect() as connection, connection:
+            with connection.cursor() as cursor:
+                execute_values(cursor, query, values, page_size=len(values))
+                written = cursor.rowcount
+        written = int(written)
+        return {"written": written, "preserved": len(values) - written}
+
 
     def ensure(self, key: PartitionKey) -> PartitionSnapshot:
         """Registra a partição como pendente se ainda não existir.

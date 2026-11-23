@@ -70,7 +70,12 @@ class LocalStorage:
                 os.unlink(temporary)
         return str(destination)
 
-    def put_bytes_atomic(self, data: bytes, key: str) -> str:
+    def put_bytes_atomic(self, data: bytes, key: str, *, fsync: bool = True) -> str:
+        """Grava bytes com rename atômico.
+
+        ``fsync=False`` é aceito apenas em migrações offline em lote, onde a
+        durabilidade é conferida depois; a operação normal mantém o fsync.
+        """
         destination = self._resolve(key)
         destination.parent.mkdir(parents=True, exist_ok=True)
         descriptor, temporary = tempfile.mkstemp(
@@ -80,7 +85,8 @@ class LocalStorage:
             with os.fdopen(descriptor, "wb") as handle:
                 handle.write(data)
                 handle.flush()
-                os.fsync(handle.fileno())
+                if fsync:
+                    os.fsync(handle.fileno())
             os.replace(temporary, destination)
             _make_readable(destination)
         finally:
