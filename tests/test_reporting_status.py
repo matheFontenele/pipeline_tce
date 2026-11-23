@@ -126,10 +126,11 @@ def test_listagem_de_snapshots():
     ]
 
     texto = format_snapshots(snapshots)
+    linha_anual = next(line for line in texto.splitlines() if "anual" in line)
 
     assert "extracted" in texto
     assert "no_data" in texto
-    assert "(-)" in texto  # mês nulo para anual
+    assert "    -" in linha_anual  # mês nulo para partição anual
 
 
 def test_endpoint_totals_soma():
