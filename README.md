@@ -90,6 +90,21 @@ docker compose exec -T airflow-scheduler python -m pipeline_tce.reporting.status
 
 `planejadas` é o universo do catálogo no escopo, `feitas` soma `extracted`/`validated`/`published`/`no_data` e `faltam` é a diferença (inclui falhas, execuções em andamento e partições nunca registradas). `--endpoint` restringe por endpoint, `--json` gera saída para automação e `--list` mostra cada partição com estado, tentativas, linhas e última run.
 
+Para inspecionar o estado bruto (apenas partições que já passaram pela DAG) e conferir o que está no disco:
+
+```bash
+docker compose exec -T airflow-postgres bash -c \
+  'psql -U "$POSTGRES_USER" -d pipeline_state -c "SELECT status, count(*) FROM ingestion_partitions GROUP BY status ORDER BY 2 DESC;"'
+
+docker compose exec -T airflow-postgres bash -c \
+  'psql -U "$POSTGRES_USER" -d pipeline_state -c "SELECT endpoint_prefix, year, month, municipality_code, status, attempts, row_count, updated_at FROM ingestion_partitions ORDER BY 1, 2, 3, 4;"'
+
+find lakehouse/bronze -name '*.parquet' | wc -l
+du -sh lakehouse
+```
+
+O SQL só enxerga partições já registradas; o que nunca rodou aparece apenas no relatório, como `sem_registro`.
+
 Requisitos:
 
 - `TCE_STATE_DB_PASSWORD` no `.env` (sem valor padrão);
