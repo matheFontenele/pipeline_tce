@@ -79,7 +79,7 @@ Contrato para o app consumidor:
 - monte em modo somente leitura quando o app estiver em container (`:ro`);
 - o app deve executar como usuário com permissão de leitura na pasta (dono do diretório, grupo ou ACL); se rodar como outro usuário no host, libere a travessia do diretório pai com `setfacl -m u:<usuario>:x /home/controle-interno`.
 
-O estado ainda é `extracted` (bronze conferido); validação contratual/qualidade e publicação ficam para a Fase 2 do roadmap.
+O estado ainda é `extracted` (bronze conferido); validação contratual/qualidade e publicação ficam para a Fase 2 do roadmap. O contrato detalhado para o app consumidor está em [`docs/consumer-access.md`](docs/consumer-access.md).
 
 Requisitos:
 
