@@ -77,7 +77,7 @@ Contrato para o app consumidor:
 - abra o Parquet apenas se o `.manifest.json` ao lado existir e tiver o mesmo `content_sha256`, `row_count` e `columns` esperados;
 - trate o manifesto como commit: Parquet sem manifesto é escrita em andamento ou incompleta;
 - monte em modo somente leitura quando o app estiver em container (`:ro`);
-- o app deve executar como usuário com permissão de leitura na pasta (dono do diretório, grupo ou ACL).
+- o app deve executar como usuário com permissão de leitura na pasta (dono do diretório, grupo ou ACL); se rodar como outro usuário no host, libere a travessia do diretório pai com `setfacl -m u:<usuario>:x /home/controle-interno`.
 
 O estado ainda é `extracted` (bronze conferido); validação contratual/qualidade e publicação ficam para a Fase 2 do roadmap.
 
