@@ -27,6 +27,16 @@ Centralizar a ingestão oficial dos dados abertos do TCE-CE em uma plataforma in
 | Versões | Não fixar versões de Airflow, Python, PostgreSQL ou `pg_duckdb` ainda. | Obter versões suportadas no destino e validar matriz de compatibilidade com dependências do extrator. |
 | Dados existentes | Piloto em área isolada; nenhuma movimentação, remoção ou sobrescrita dos Parquets atuais. | Definir leitura dupla/comparação e cutover somente após piloto e autorização. |
 
+### Decisões registradas
+
+#### 2026-11-23 — Adoção do histórico e atualização diária por janela
+
+- **Contexto:** 828.274 Parquets e 13,59 GB já extraídos pelo pipeline anterior em diretório plano, cobrindo 2008–2026; reextrair pela API seria desnecessário e caro. A extração recorrente antiga (`tce_extracao_mensal`) rodava com backfill e reparo sobre a mesma árvore.
+- **Decisão:** copiar os arquivos para `bronze/<endpoint>/<ano>/` (origem somente leitura), gerar manifesto a partir do próprio Parquet e registrar o estado como `extracted` (ou `no_data` quando `row_count = 0`), sem chamar a API. A atualização passa a ser feita pela DAG `tce_atualizacao_diaria`, que reextrai uma janela de meses recentes (mês corrente + anterior) e deixa o restante do histórico imutável.
+- **Motivo:** aproveita 13,59 GB já baixados, mantém o extrato anterior intacto para comparação e reduz a carga diária à única parte que realmente muda. `adopt_many` preserva estados com artefato, então a adoção é idempotente e nunca sobrescreve uma versão boa.
+- **Alternativas descartadas:** reextrair tudo pela API (semanas de requisições e risco de bloqueio); mover ou hardlinkar a origem (irreversível e acoplado ao projeto antigo); apontar o consumidor diretamente para a árvore antiga (mantém dois layouts e impede manifesto/sha256 por partição); marcar `no_data` no ano corrente (a ausência de hoje não é cache: o dado aparece depois).
+- **Consequência:** partições dentro da janela voltam a `pending` a cada execução (`refresh=True`); ausência no ano corrente fica `failed` retomável e é contada como `sem_dados`, sem abrir o circuit breaker. A DAG antiga foi pausada para não duplicar chamadas à API.
+
 ### Referências observadas no Airflow antigo (não são aprovação de produção)
 
 - `src/orchestration/airflow/Dockerfile` usa `apache/airflow:2.10.4-python3.10`; os requisitos específicos incluem dependências da aplicação Streamlit, contrariando o desacoplamento desejado.

@@ -105,6 +105,41 @@ du -sh lakehouse
 
 O SQL só enxerga partições já registradas; o que nunca rodou aparece apenas no relatório, como `sem_registro`.
 
+#### Atualização diária
+
+A DAG agendada `tce_atualizacao_diaria` (02:30, fuso `America/Fortaleza`) mantém o lakehouse em dia sem reextrair o histórico: ela declara uma **janela** de meses recentes (`months_back`, padrão 2 = mês corrente + mês anterior) e reextrai essa janela para todos os municípios com `refresh=True`. Fora da janela nada é tocado — partições só voltam a `pending` por `request_reprocess` explícito.
+
+Por que a janela existe: o mês em curso muda todos os dias e o mês recém-fechado ainda recebe revisão, então `extracted` e `no_data` não podem ser tratados como definitivos dentro dela. A substituição só acontece depois de uma resposta completa (`put_file_atomic` + manifesto), portanto uma falha no meio mantém a versão anterior.
+
+Ausência de dados no ano corrente **não** vira cache negativo: a partição fica `failed` com erro explícito e é retentada na execução seguinte. A janela conta esses casos como `sem_dados` (não como falha) e não abre o circuit breaker, que só dispara após 15 falhas reais consecutivas.
+
+Custo esperado: 3.700 partições por mês da janela; com `TCE_API_MIN_INTERVAL_SECONDS=1.5` e `max_workers=2`, cerca de 1,5 h por mês.
+
+```bash
+# executar a janela manualmente com teto (não espera o agendamento)
+docker compose exec -T airflow-scheduler airflow dags trigger tce_atualizacao_diaria \
+  --conf '{"max_partitions": 3, "endpoint_prefixes": "notas_empenho"}'
+```
+
+Parâmetros: `months_back`, `max_workers`, `endpoint_prefixes`, `max_partitions` (0 = sem teto).
+
+#### Adoção do histórico do extrator anterior
+
+Os Parquets do extrator antigo foram copiados (nunca movidos nem reescritos) para o layout bronze, com manifesto derivado do próprio arquivo e estado registrado como artefato pronto, sem chamar a API:
+
+```bash
+docker compose run --rm -T --entrypoint python \
+  -v /caminho/do/extrator/antigo/data:/mnt/origem:ro \
+  airflow-scheduler -m pipeline_tce.migration.legacy --source /mnt/origem --workers 8
+```
+
+- `--dry-run` só compara a origem com o universo planejado; `--verify N` reconfere o sha256 de N partições já registradas contra o estado.
+- `adopt_many` só ocupa partições inexistentes/`pending`/`failed`: `extracted`/`validated`/`published`/`no_data`/`running` são preservados, então rodar de novo é seguro e retoma o que faltou.
+- A origem é montada `:ro` e o comando é idempotente; manifesto e estado reaproveitam o que já está íntegro.
+- Ausência de linhas vira `no_data` (marcador Parquet de zero colunas preservado, nunca apagado) e o manifesto recebe `origin.extractor = "legado"` com arquivo e mtime de origem.
+- `--limit` usa `islice`: limitar não varre a origem inteira.
+
+
 Requisitos:
 
 - `TCE_STATE_DB_PASSWORD` no `.env` (sem valor padrão);
@@ -132,7 +167,7 @@ Não use `docker compose down -v` em ambiente com estado que precise ser preserv
 ## Componentes previstos
 
 - `catalog/`: cópias versionadas de endpoints e municípios.
-- `dags/`: piloto manual de uma partição; recorrência, backfill, reparação e publicação permanecem etapas futuras.
+- `dags/`: piloto manual de uma partição, lote limitado e atualização diária por janela de meses; validação, publicação e backfill permanecem etapas futuras.
 - `src/pipeline_tce/ingestion/`: catálogo, planejamento, retry/backoff, limitação de chamadas e gravação atômica do piloto.
 - `tests/`: testes automatizados sem chamadas à API real.
 - `docs/architecture-plan.md`: decisões e gates de infraestrutura/migração.
