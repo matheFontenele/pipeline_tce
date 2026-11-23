@@ -175,7 +175,12 @@ class PartitionRepository:
         return _snapshot(row)
 
     def request_reprocess(self, key: PartitionKey) -> PartitionSnapshot:
-        """Solicita explicitamente nova extração de uma partição."""
+        """Solicita explicitamente nova extração de uma partição.
+
+        Permitido a partir de ``extracted``, ``validated``, ``published``,
+        ``no_data`` e ``failed``; a próxima execução reextrai e sobrescreve o
+        Parquet de staging/bronze apenas após nova resposta completa.
+        """
         return self._transition(key, PartitionStatus.PENDING, last_error=None)
 
     def mark_running(self, key: PartitionKey, run_id: str) -> PartitionSnapshot:

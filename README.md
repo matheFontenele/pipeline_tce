@@ -58,7 +58,7 @@ Essa DAG é um **piloto de extração**, não é validação contratual/qualidad
 
 ### Pipeline com estado e manifesto
 
-A DAG manual `tce_pipeline_particao` exercita a fundação da Fase 1: registra a partição como `pending`, marca `running`, grava o Parquet em `airflow_pipeline_data` (layout `bronze/<endpoint>/<ano>/`), gera `*.manifest.json` com sha256/linhas/colunas e marca `extracted` ou `no_data`. Uma segunda task confere que estado, manifesto e arquivo concordam. Ela **não publica** e não altera o piloto.
+A DAG manual `tce_pipeline_particao` exercita a fundação da Fase 1: registra a partição como `pending`, marca `running`, grava o Parquet em `airflow_pipeline_data` (layout `bronze/<endpoint>/<ano>/`), gera `*.manifest.json` com sha256/linhas/colunas e marca `extracted` ou `no_data`. Uma segunda task confere que estado, manifesto e arquivo concordam. Repetir a execução de uma partição já extraída **não** reconsulta a API nem sobrescreve o artefato: a task retorna `skipped` e a conferência continua validando a versão existente; para reextrair é preciso solicitar reprocessamento no estado (`extracted`/`validated`/`published`/`no_data` -> `pending`). Ela **não publica** e não altera o piloto.
 
 Requisitos:
 

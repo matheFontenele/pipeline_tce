@@ -73,5 +73,12 @@ def test_transicao_invalida_falha_com_estados_no_erro():
         ensure_transition(PartitionStatus.PENDING, PartitionStatus.PUBLISHED)
 
 
+def test_artefato_extraido_ou_validado_so_volta_para_pending():
+    for status in (PartitionStatus.EXTRACTED, PartitionStatus.VALIDATED):
+        ensure_transition(status, PartitionStatus.PENDING)
+        with pytest.raises(InvalidTransitionError):
+            ensure_transition(status, PartitionStatus.RUNNING)
+
+
 def test_reexecucao_do_mesmo_estado_e_idempotente():
     ensure_transition(PartitionStatus.RUNNING, PartitionStatus.RUNNING)

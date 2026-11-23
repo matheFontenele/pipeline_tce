@@ -13,8 +13,9 @@ class PartitionStatus(str, Enum):
     """Estados possíveis de uma partição.
 
     ``no_data`` é um resultado legítimo (cache negativo histórico), não uma
-    falha. ``failed`` é retomável; a próxima execução pode voltar para
-    ``pending`` ou ``running``.
+    falha. ``extracted`` e ``validated`` já têm artefato íntegro e só voltam a
+    ``pending`` por ``request_reprocess`` explícito. ``failed`` é retomável; a
+    próxima execução pode voltar para ``pending`` ou ``running``.
     """
 
     PENDING = "pending"
@@ -38,10 +39,10 @@ ALLOWED_TRANSITIONS: dict[PartitionStatus, frozenset[PartitionStatus]] = {
         }
     ),
     PartitionStatus.EXTRACTED: frozenset(
-        {PartitionStatus.VALIDATED, PartitionStatus.FAILED}
+        {PartitionStatus.VALIDATED, PartitionStatus.PENDING, PartitionStatus.FAILED}
     ),
     PartitionStatus.VALIDATED: frozenset(
-        {PartitionStatus.PUBLISHED, PartitionStatus.FAILED}
+        {PartitionStatus.PUBLISHED, PartitionStatus.PENDING, PartitionStatus.FAILED}
     ),
     PartitionStatus.PUBLISHED: frozenset({PartitionStatus.PENDING}),
     PartitionStatus.NO_DATA: frozenset({PartitionStatus.PENDING}),
@@ -130,5 +131,14 @@ class PartitionSnapshot:
 
     @property
     def settled(self) -> bool:
-        """Estados que não precisam ser reprocessados sem pedido explícito."""
+        """Estados terminais que não são reprocessados sem pedido explícito."""
         return self.status in (PartitionStatus.PUBLISHED, PartitionStatus.NO_DATA)
+
+    @property
+    def artifact_ready(self) -> bool:
+        """Estados com Parquet + manifesto íntegros; reextrair apagaria artefato válido."""
+        return self.status in (
+            PartitionStatus.EXTRACTED,
+            PartitionStatus.VALIDATED,
+            PartitionStatus.PUBLISHED,
+        )

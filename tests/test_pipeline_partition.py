@@ -126,6 +126,42 @@ def test_particao_publicada_e_pulada_sem_chamar_api(repository, storage, tmp_pat
     repository.mark_running.assert_not_called()
 
 
+@pytest.mark.parametrize(
+    "status", [PartitionStatus.EXTRACTED, PartitionStatus.VALIDATED]
+)
+def test_particao_com_artefato_e_pulada_sem_reextrair(
+    repository, storage, tmp_path, status
+):
+    repository.get.return_value = _snapshot(
+        status, row_count=4, content_sha256="b" * 64, storage_uri="/bronze"
+    )
+    extract = Mock()
+
+    result = _run(repository, storage, tmp_path, extract)
+
+    assert result.status == "skipped"
+    assert result.rows == 4
+    extract.assert_not_called()
+    repository.mark_running.assert_not_called()
+    repository.mark_failed.assert_not_called()
+
+
+def test_estado_pending_apos_pedido_explicito_reextrai_particao(
+    repository, storage, tmp_path
+):
+    # request_reprocess levou a partição de extracted para pending.
+    repository.get.return_value = _snapshot(
+        PartitionStatus.PENDING, row_count=4, content_sha256="b" * 64
+    )
+
+    result = _run(repository, storage, tmp_path, _extract(3))
+
+    assert result.status == "extracted"
+    assert result.rows == 3
+    repository.mark_running.assert_called_once_with(KEY, "run-1")
+    repository.mark_failed.assert_not_called()
+
+
 def test_ausencia_historica_vira_no_data_com_marcador(repository, storage, tmp_path):
     result = _run(repository, storage, tmp_path, _extract(0))
 

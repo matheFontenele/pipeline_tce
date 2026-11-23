@@ -60,8 +60,12 @@ API TCE-CE
 Parquet; isso não distingue publicado, falho, vazio legítimo e desatualizado.
 **Decisão:** tabela `ingestion_partitions` com transições explícitas
 (`pending -> running -> extracted -> validated -> published`, além de `no_data`
-e `failed`), mantida em um banco da plataforma. **Motivo:** retomada, relatório
-e reparo passam a ser consultáveis, e o estado sobrevive à troca de storage.
+e `failed`), mantida em um banco da plataforma. Partições com artefato
+(`extracted`, `validated`, `published`) ou ausência histórica (`no_data`) não
+são reextraídas: só voltam a `pending` por pedido explícito de
+reprocessamento. **Motivo:** retomada, relatório e reparo passam a ser
+consultáveis, o estado sobrevive à troca de storage e uma reexecução não
+sobrescreve Parquet válido nem consome a API sem necessidade.
 **Alternativas descartadas:** continuar inferindo pelo arquivo (ambíguo);
 guardar estado no metadado do Airflow (acopla ciclo de vida do dado ao
 orquestrador).

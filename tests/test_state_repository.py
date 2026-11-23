@@ -176,6 +176,33 @@ def test_falha_guarda_erro_limitado_e_permite_retomada(repository):
 
 
 @requires_postgres
+def test_particao_extraida_so_e_reextraida_apos_pedido_explicito(repository):
+    repository.ensure(MONTHLY)
+    repository.mark_running(MONTHLY, "run-1")
+    extracted = repository.mark_extracted(
+        MONTHLY,
+        run_id="run-1",
+        row_count=3,
+        content_sha256=SHA,
+        schema_version="1",
+        storage_uri="/data/bronze/x.parquet",
+    )
+    assert extracted.artifact_ready is True
+
+    with pytest.raises(InvalidTransitionError):
+        repository.mark_running(MONTHLY, "run-2")
+    assert repository.get(MONTHLY).status is PartitionStatus.EXTRACTED
+
+    requested = repository.request_reprocess(MONTHLY)
+    assert requested.status is PartitionStatus.PENDING
+    assert requested.row_count == 3
+
+    rerun = repository.mark_running(MONTHLY, "run-2")
+    assert rerun.status is PartitionStatus.RUNNING
+    assert rerun.attempts == 2
+
+
+@requires_postgres
 def test_pendentes_respeitam_limite_e_ordem(repository):
     repository.ensure(PartitionKey("b", 2024, 1, "001"))
     repository.ensure(PartitionKey("a", 2024, 2, "001"))

@@ -64,9 +64,12 @@ def run_partition(
 ) -> PartitionRunResult:
     """Executa extração -> storage -> manifesto -> estado para uma partição.
 
-    ``settled`` (publicado ou ausência histórica) só é reprocessado após
-    ``request_reprocess`` explícito. Qualquer falha marca ``failed`` e propaga,
-    sem publicar arquivo parcial.
+    Partições com artefato já íntegro (``extracted``, ``validated``,
+    ``published``) e ausência histórica (``no_data``) não são reextraídas:
+    só voltam a ``pending`` após ``request_reprocess`` explícito. Qualquer
+    falha marca ``failed`` e propaga, sem publicar arquivo parcial. Se o
+    estado indicar artefato e o storage tiver divergido, a task de conferência
+    falha e o reprocessamento deve ser solicitado.
     """
     if not run_id:
         raise ValueError("run_id é obrigatório")
@@ -77,9 +80,9 @@ def run_partition(
     if snapshot is None:
         raise PipelineError("Partição não encontrada no estado após o registro")
 
-    if snapshot.settled:
+    if snapshot.artifact_ready or snapshot.settled:
         log.info(
-            "Partição já concluída; reprocessamento não solicitado; arquivo=%s estado=%s",
+            "Partição já possui artefato; reprocessamento não solicitado; arquivo=%s estado=%s",
             key.filename,
             snapshot.status.value,
         )
