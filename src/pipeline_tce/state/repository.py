@@ -142,6 +142,20 @@ class PartitionRepository:
                 row = cursor.fetchone()
         return _snapshot(row) if row else None
 
+    def list_all(self) -> list[PartitionSnapshot]:
+        """Lista todo o estado registrado, em ordem determinística."""
+        from psycopg2.extras import RealDictCursor
+
+        with self._connect() as connection, connection:
+            with connection.cursor(cursor_factory=RealDictCursor) as cursor:
+                cursor.execute(
+                    f"SELECT {_COLUMNS} FROM ingestion_partitions "
+                    "ORDER BY endpoint_prefix, year, month NULLS FIRST, "
+                    "municipality_code"
+                )
+                rows = cursor.fetchall()
+        return [_snapshot(row) for row in rows]
+
     def ensure(self, key: PartitionKey) -> PartitionSnapshot:
         """Registra a partição como pendente se ainda não existir.
 

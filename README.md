@@ -81,6 +81,15 @@ Contrato para o app consumidor:
 
 O estado ainda é `extracted` (bronze conferido); validação contratual/qualidade e publicação ficam para a Fase 2 do roadmap. O contrato detalhado para o app consumidor está em [`docs/consumer-access.md`](docs/consumer-access.md).
 
+Para saber o que já foi extraído e o que falta, sem chamar a API:
+
+```bash
+docker compose exec -T airflow-scheduler python -m pipeline_tce.reporting.status \
+  --start-year 2024 --end-year 2024 --municipality 057 --list
+```
+
+`planejadas` é o universo do catálogo no escopo, `feitas` soma `extracted`/`validated`/`published`/`no_data` e `faltam` é a diferença (inclui falhas, execuções em andamento e partições nunca registradas). `--endpoint` restringe por endpoint, `--json` gera saída para automação e `--list` mostra cada partição com estado, tentativas, linhas e última run.
+
 Requisitos:
 
 - `TCE_STATE_DB_PASSWORD` no `.env` (sem valor padrão);
