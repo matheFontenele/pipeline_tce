@@ -58,7 +58,28 @@ Essa DAG é um **piloto de extração**, não é validação contratual/qualidad
 
 ### Pipeline com estado e manifesto
 
-A DAG manual `tce_pipeline_particao` exercita a fundação da Fase 1: registra a partição como `pending`, marca `running`, grava o Parquet em `airflow_pipeline_data` (layout `bronze/<endpoint>/<ano>/`), gera `*.manifest.json` com sha256/linhas/colunas e marca `extracted` ou `no_data`. Uma segunda task confere que estado, manifesto e arquivo concordam. Repetir a execução de uma partição já extraída **não** reconsulta a API nem sobrescreve o artefato: a task retorna `skipped` e a conferência continua validando a versão existente; para reextrair é preciso solicitar reprocessamento no estado (`extracted`/`validated`/`published`/`no_data` -> `pending`). Ela **não publica** e não altera o piloto.
+A DAG manual `tce_pipeline_particao` exercita a fundação da Fase 1: registra a partição como `pending`, marca `running`, grava o Parquet no lakehouse (layout `bronze/<endpoint>/<ano>/`), gera `*.manifest.json` com sha256/linhas/colunas e marca `extracted` ou `no_data`. Uma segunda task confere que estado, manifesto e arquivo concordam. Repetir a execução de uma partição já extraída **não** reconsulta a API nem sobrescreve o artefato: a task retorna `skipped` e a conferência continua validando a versão existente; para reextrair é preciso solicitar reprocessamento no estado (`extracted`/`validated`/`published`/`no_data` -> `pending`). Ela **não publica** e não altera o piloto.
+
+#### Lakehouse e consumo
+
+O lakehouse é um diretório do host montado no scheduler, não um volume gerenciado pelo Docker: `${TCE_LAKEHOUSE_DIR:-./lakehouse}` -> `/opt/airflow/pipeline-data`. Artigos são gravados com modo `0644` para leitura por aplicações que rodam com outro usuário no mesmo host.
+
+```text
+Host:              <TCE_LAKEHOUSE_DIR>/bronze/<endpoint>/<ano>/<arquivo>.parquet
+Container Airflow: /opt/airflow/pipeline-data/bronze/<endpoint>/<ano>/<arquivo>.parquet
+Manifesto:         <mesmo caminho>.manifest.json
+Staging interno:   <TCE_LAKEHOUSE_DIR>/_staging  (não consumir)
+```
+
+Contrato para o app consumidor:
+
+- leia **somente** `bronze/**`; `_staging` e arquivos `.tmp` são internos;
+- abra o Parquet apenas se o `.manifest.json` ao lado existir e tiver o mesmo `content_sha256`, `row_count` e `columns` esperados;
+- trate o manifesto como commit: Parquet sem manifesto é escrita em andamento ou incompleta;
+- monte em modo somente leitura quando o app estiver em container (`:ro`);
+- o app deve executar como usuário com permissão de leitura na pasta (dono do diretório, grupo ou ACL).
+
+O estado ainda é `extracted` (bronze conferido); validação contratual/qualidade e publicação ficam para a Fase 2 do roadmap.
 
 Requisitos:
 
@@ -66,7 +87,7 @@ Requisitos:
 - `airflow-init` provisiona papel `pipeline_state`, banco `pipeline_state` e schema de forma idempotente;
 - se a senha estiver ausente, o init apenas avisa e a DAG falha com mensagem clara ao tentar executar.
 
-O volume `airflow_pipeline_data` é separado de `airflow_pilot_data`. O estado fica em um banco próprio no mesmo Postgres, sem acesso ao banco de metadados do Airflow.
+O lakehouse (`TCE_LAKEHOUSE_DIR`) é separado de `airflow_pilot_data`, que permanece como volume isolado do lote antigo. O estado fica em um banco próprio no mesmo Postgres, sem acesso ao banco de metadados do Airflow.
 
 Os catálogos versionados em `catalog/` são cópias controladas de `endpoints.json` e `municipios.json` do projeto de origem, sem import em runtime. Consulte [`docs/catalog-provenance.md`](docs/catalog-provenance.md).
 

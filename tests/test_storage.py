@@ -1,5 +1,7 @@
 import hashlib
 import json
+import stat
+from pathlib import Path
 
 import pandas as pd
 import pytest
@@ -35,6 +37,8 @@ def test_grava_arquivo_e_substitui_atomicamente(tmp_path, storage):
     assert storage.read_bytes("bronze/notas_empenho/2024/arquivo.parquet") == b"segunda versao"
     assert list((tmp_path / "root").rglob("*.tmp")) == []
     assert storage.uri("bronze/notas_empenho/2024/arquivo.parquet") == uri
+    stored = Path(uri)
+    assert stat.S_IMODE(stored.stat().st_mode) == 0o644
 
 
 @pytest.mark.parametrize(
@@ -88,6 +92,10 @@ def test_manifesto_descreve_parquet_com_dados(tmp_path, storage):
     write_manifest(storage, key=KEY, manifest=manifest)
     stored = json.loads(storage.read_bytes(manifest_key(KEY.filename)))
     assert stored == manifest
+    assert (
+        stat.S_IMODE(Path(storage.uri(manifest_key(KEY.filename))).stat().st_mode)
+        == 0o644
+    )
 
 
 def test_manifesto_de_marcador_vazio_tem_zero_linhas(tmp_path):

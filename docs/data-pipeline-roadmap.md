@@ -79,7 +79,9 @@ produção; `os.replace` não existe em S3/MinIO. **Decisão:** interface
 sha256, tamanho, contagem, colunas, `run_id` e versões. **Motivo:** o mesmo
 código serve ao piloto local e ao storage compartilhado; o manifesto é o
 commit lógico, e a conferência hasheia pelo próprio backend (sem depender de
-caminho físico). **Alternativas descartadas:** exigir filesystem POSIX em produção
+caminho físico). No ambiente atual o backend é um diretório do host
+(`TCE_LAKEHOUSE_DIR`) montado no scheduler, com arquivos `0644` para leitura
+pelo app consumidor no mesmo host. **Alternativas descartadas:** exigir filesystem POSIX em produção
 (limita backend); considerar a escrita do objeto como commit (não atômica em
 S3).
 

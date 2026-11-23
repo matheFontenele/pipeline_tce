@@ -1,8 +1,9 @@
 """Backend de armazenamento em filesystem local.
 
-Serve ao piloto (volume Docker) e aos testes. A semântica de escrita atômica
-depende de ``os.replace`` no mesmo filesystem; ao trocar por S3/MinIO, a
-atomicidade passa a ser garantida por manifesto, não por rename.
+Serve ao lakehouse montado do host e aos testes. A semântica de escrita
+atômica depende de ``os.replace`` no mesmo filesystem; ao trocar por
+S3/MinIO, a atomicidade passa a ser garantida por manifesto, não por rename.
+Arquivos são publicados com modo ``0644`` para leitura por outro usuário.
 """
 
 from __future__ import annotations
@@ -14,6 +15,14 @@ import tempfile
 from pathlib import Path, PurePosixPath
 
 from pipeline_tce.storage.base import StorageError
+
+#: Artefatos do lakehouse são dados abertos: leitura liberada ao consumidor.
+PUBLISHED_FILE_MODE = 0o644
+
+
+def _make_readable(path: Path) -> None:
+    """Garante leitura pelo app consumidor, que roda com outro usuário."""
+    os.chmod(path, PUBLISHED_FILE_MODE)
 
 
 class LocalStorage:
@@ -55,6 +64,7 @@ class LocalStorage:
             with open(temporary, "rb") as handle:
                 os.fsync(handle.fileno())
             os.replace(temporary, destination)
+            _make_readable(destination)
         finally:
             if os.path.exists(temporary):
                 os.unlink(temporary)
@@ -72,6 +82,7 @@ class LocalStorage:
                 handle.flush()
                 os.fsync(handle.fileno())
             os.replace(temporary, destination)
+            _make_readable(destination)
         finally:
             if os.path.exists(temporary):
                 os.unlink(temporary)

@@ -119,7 +119,8 @@ services:
       - ./catalog:/opt/airflow/catalog:ro
       - airflow_logs:/opt/airflow/logs
       - airflow_pilot_data:/opt/airflow/pilot-data
-      - airflow_pipeline_data:/opt/airflow/pipeline-data
+      # Lakehouse: diretório do host, legível pelo app consumidor (somente leitura).
+      - ${TCE_LAKEHOUSE_DIR:-./lakehouse}:/opt/airflow/pipeline-data
     healthcheck:
       test: ["CMD-SHELL", "airflow jobs check --job-type SchedulerJob --hostname $${HOSTNAME}"]
       interval: 30s
@@ -161,4 +162,3 @@ volumes:
   airflow_metadata:
   airflow_logs:
   airflow_pilot_data:
-  airflow_pipeline_data:

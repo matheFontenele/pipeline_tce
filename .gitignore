@@ -11,3 +11,4 @@ data/
 artifacts/
 .DS_Store
 TODO.local.md
+lakehouse/
