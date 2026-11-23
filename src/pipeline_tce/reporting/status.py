@@ -24,7 +24,9 @@ from pipeline_tce.ingestion.catalog import Endpoint, Municipality
 from pipeline_tce.ingestion.planning import build_partition
 from pipeline_tce.state.models import PartitionKey, PartitionSnapshot
 
-ENDPOINT_WIDTH = 45
+# Maior prefixo do catálogo tem 60 caracteres; nomes mais longos são cortados
+# para não desalinhar as colunas numéricas.
+ENDPOINT_WIDTH = 60
 
 
 @dataclass
