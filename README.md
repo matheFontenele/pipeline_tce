@@ -113,7 +113,7 @@ Por que a janela existe: o mês em curso muda todos os dias e o mês recém-fech
 
 Ausência de dados no ano corrente **não** vira cache negativo: a partição fica `failed` com erro explícito e é retentada na execução seguinte. A janela conta esses casos como `sem_dados` (não como falha) e não abre o circuit breaker, que só dispara após 15 falhas reais consecutivas.
 
-Custo esperado: 3.700 partições por mês da janela; com `TCE_API_MIN_INTERVAL_SECONDS=1.5` e `max_workers=2`, cerca de 1,5 h por mês.
+Custo medido (2026-11-23, primeira janela completa): 7.585 partições / 5h57, com `max_workers=2` e pacer de 1,5 s. O custo é dominado pelas partições sem dados — novembro inteiro (3.700) ainda não tem publicação — e cada requisição ocupa ~2 s de ponta a ponta. Com a publicação em dia, a janela tende a cair.
 
 ```bash
 # executar a janela manualmente com teto (não espera o agendamento)
